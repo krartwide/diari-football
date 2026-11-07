@@ -77,7 +77,7 @@ export function LiveMatch({
         </div>
         {done && (
           <Link
-            href={`/match/${match.id}`}
+            href={`/match/?id=${encodeURIComponent(match.id)}`}
             className="ml-auto text-sm text-emerald-400 underline-offset-2 hover:underline"
           >
             저장됨 · 경기지 열기

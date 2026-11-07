@@ -314,7 +314,7 @@ function NewTeamForm() {
       players: enriched,
     };
     saveCustomTeam(team);
-    router.push(`/teams/${team.id}`);
+    router.push(`/teams/view/?id=${encodeURIComponent(team.id)}`);
   };
 
   if (!ready) {
@@ -689,7 +689,7 @@ function NewTeamForm() {
             저장
           </Button>
           <Link
-            href={editId ? `/teams/${editId}` : "/teams"}
+            href={editId ? `/teams/view/?id=${encodeURIComponent(editId)}` : "/teams/"}
             className={cn(
               buttonVariants({ variant: "outline", size: "lg" }),
               "border-white/15",

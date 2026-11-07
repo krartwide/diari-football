@@ -33,13 +33,13 @@ export default function HomePage() {
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
-            href="/play"
+            href="/play/"
             className={cn(buttonVariants(), "bg-emerald-600 hover:bg-emerald-500")}
           >
             경기 시작
           </Link>
           <Link
-            href="/teams"
+            href="/teams/"
             className={cn(buttonVariants({ variant: "outline" }), "border-zinc-600")}
           >
             공식 국가대표 보기

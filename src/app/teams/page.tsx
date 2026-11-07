@@ -50,7 +50,7 @@ export default function TeamsPage() {
           </p>
         </div>
         <Link
-          href="/teams/new"
+          href="/teams/new/"
           className="inline-flex h-9 items-center rounded-lg bg-emerald-600 px-3 text-sm font-medium text-white hover:bg-emerald-500"
         >
           새 팀 만들기
@@ -84,7 +84,7 @@ export default function TeamsPage() {
         {teams.map((t) => (
           <Link
             key={t.id}
-            href={`/teams/${t.id}`}
+            href={`/teams/view/?id=${encodeURIComponent(t.id)}`}
             className="group overflow-hidden rounded-xl border border-white/10 bg-[#14181f] transition hover:border-emerald-500/40"
           >
             <div

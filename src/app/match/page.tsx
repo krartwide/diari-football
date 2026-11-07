@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { LiveMatch } from "@/components/sim/LiveMatch";
 import { Scoreboard } from "@/components/match/Scoreboard";
 import { EventFeed } from "@/components/match/EventFeed";
@@ -10,6 +10,7 @@ import { LineupBoard } from "@/components/match/LineupBoard";
 import { StatsTable } from "@/components/match/StatsTable";
 import { Button } from "@/components/ui/button";
 import {
+  buildShareUrl,
   decodeShareCode,
   getMatchById,
   matchShareCode,
@@ -36,9 +37,8 @@ export default function MatchPage() {
 }
 
 function MatchPageInner() {
-  const params = useParams<{ id: string }>();
   const search = useSearchParams();
-  const id = decodeURIComponent(params.id ?? "");
+  const id = search.get("id") ?? "";
   const live = search.get("live") === "1";
   const shareParam = search.get("share");
 
@@ -47,7 +47,7 @@ function MatchPageInner() {
   const [missing, setMissing] = useState(false);
 
   useEffect(() => {
-    let found = getMatchById(id);
+    let found = id ? getMatchById(id) : undefined;
     if (!found && shareParam) {
       const decoded = decodeShareCode(shareParam);
       if (decoded && isMatchResult(decoded)) {
@@ -65,8 +65,7 @@ function MatchPageInner() {
 
   const shareUrl = useMemo(() => {
     if (!match || typeof window === "undefined") return "";
-    const code = matchShareCode(match);
-    return `${window.location.origin}/share/${code}`;
+    return buildShareUrl(matchShareCode(match));
   }, [match]);
 
   const copyShare = async () => {
@@ -84,7 +83,7 @@ function MatchPageInner() {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 text-center">
         <p className="text-zinc-400">경기 기록을 찾을 수 없습니다.</p>
-        <Link href="/history" className="mt-4 inline-block text-emerald-400 hover:underline">
+        <Link href="/history/" className="mt-4 inline-block text-emerald-400 hover:underline">
           기록으로 이동
         </Link>
       </div>
@@ -106,7 +105,7 @@ function MatchPageInner() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-3 py-4 sm:px-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Link href="/history" className="text-sm text-zinc-400 hover:text-white">
+        <Link href="/history/" className="text-sm text-zinc-400 hover:text-white">
           ← 기록
         </Link>
         <Button
@@ -118,7 +117,7 @@ function MatchPageInner() {
           {copied ? "복사됨" : "공유 링크 복사"}
         </Button>
         <Link
-          href={`/match/${match.id}?live=1`}
+          href={`/match/?id=${encodeURIComponent(match.id)}&live=1`}
           className="text-sm text-emerald-400 hover:underline"
         >
           라이브 다시보기

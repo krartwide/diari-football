@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
 import { Scoreboard } from "@/components/match/Scoreboard";
 import { EventFeed } from "@/components/match/EventFeed";
 import { LineupBoard } from "@/components/match/LineupBoard";
@@ -19,12 +18,15 @@ function isSeries(v: MatchResult | SeriesResult): v is SeriesResult {
 }
 
 export default function SharePage() {
-  const params = useParams<{ code: string }>();
-  const code = decodeURIComponent(params.code ?? "");
   const [data, setData] = useState<MatchResult | SeriesResult | null>(null);
   const [error, setError] = useState(false);
 
   useEffect(() => {
+    const code = window.location.hash.replace(/^#/, "");
+    if (!code) {
+      setError(true);
+      return;
+    }
     const decoded = decodeShareCode(code);
     if (!decoded) {
       setError(true);
@@ -32,7 +34,7 @@ export default function SharePage() {
     }
     setData(decoded);
     if (isMatch(decoded)) saveMatch(decoded);
-  }, [code]);
+  }, []);
 
   if (error) {
     return (
@@ -71,7 +73,7 @@ export default function SharePage() {
               <h2 className="text-sm font-semibold text-zinc-300">{i + 1}경기</h2>
               <Scoreboard match={m} />
               <Link
-                href={`/match/${m.id}`}
+                href={`/match/?id=${encodeURIComponent(m.id)}`}
                 className="inline-block text-sm text-emerald-400 hover:underline"
               >
                 전체 경기지 보기
@@ -92,7 +94,10 @@ export default function SharePage() {
       <EventFeed match={data} />
       <LineupBoard match={data} />
       <StatsTable match={data} />
-      <Link href={`/match/${data.id}`} className="text-sm text-zinc-400 hover:text-white">
+      <Link
+        href={`/match/?id=${encodeURIComponent(data.id)}`}
+        className="text-sm text-zinc-400 hover:text-white"
+      >
         저장된 경기지로 이동 →
       </Link>
     </div>

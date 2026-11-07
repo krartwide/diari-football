@@ -16,6 +16,7 @@
 # next.js
 /.next/
 /out/
+# static export is rebuilt in CI; keep out/ out of git
 
 # production
 /build

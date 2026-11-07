@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { ALL_OFFICIAL_TEAMS } from "@/data/nations";
 import { getCustomTeams } from "@/lib/storage";
 import { teamAverageOvr } from "@/lib/ovr";
@@ -10,7 +10,22 @@ import type { Team } from "@/types/football";
 import { Badge } from "@/components/ui/badge";
 
 export default function TeamDetailPage() {
-  const params = useParams<{ id: string }>();
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-3xl px-4 py-16 text-center text-zinc-500">
+          불러오는 중…
+        </div>
+      }
+    >
+      <TeamDetailInner />
+    </Suspense>
+  );
+}
+
+function TeamDetailInner() {
+  const search = useSearchParams();
+  const id = search.get("id") ?? "";
   const [custom, setCustom] = useState<Team[]>([]);
 
   useEffect(() => {
@@ -18,15 +33,15 @@ export default function TeamDetailPage() {
   }, []);
 
   const team = useMemo(() => {
-    const id = decodeURIComponent(params.id);
+    if (!id) return undefined;
     return [...custom, ...ALL_OFFICIAL_TEAMS].find((t) => t.id === id);
-  }, [custom, params.id]);
+  }, [custom, id]);
 
   if (!team) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 text-center">
         <p className="text-zinc-400">팀을 찾을 수 없습니다.</p>
-        <Link href="/teams" className="mt-4 inline-block text-emerald-400">
+        <Link href="/teams/" className="mt-4 inline-block text-emerald-400">
           목록으로
         </Link>
       </div>
@@ -65,10 +80,28 @@ export default function TeamDetailPage() {
       </div>
 
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
-        <InfoCard title="감독" body={`${team.manager.name} (${team.manager.nameEn})`} sub={`성격: ${team.manager.personality} · 취임 ${team.manager.since}`} />
-        <InfoCard title="전술" body={team.tactics.formation} sub={`성향 ${team.tactics.mentality} · 압박 ${team.tactics.pressing}/10 · 템포 ${team.tactics.tempo}/10`} />
+        <InfoCard
+          title="감독"
+          body={`${team.manager.name} (${team.manager.nameEn})`}
+          sub={`성격: ${team.manager.personality} · 취임 ${team.manager.since}`}
+        />
+        <InfoCard
+          title="전술"
+          body={team.tactics.formation}
+          sub={`성향 ${team.tactics.mentality} · 압박 ${team.tactics.pressing}/10 · 템포 ${team.tactics.tempo}/10`}
+        />
         <InfoCard title="홈구장" body={team.stadium} sub={team.confederation} />
-        <InfoCard title="구성" body={`선수 ${team.players.length}명`} sub={team.isOfficial ? "공식 공개 팀" : team.visibility === "private" ? "비공개 커스텀" : "공개 커스텀"} />
+        <InfoCard
+          title="구성"
+          body={`선수 ${team.players.length}명`}
+          sub={
+            team.isOfficial
+              ? "공식 공개 팀"
+              : team.visibility === "private"
+                ? "비공개 커스텀"
+                : "공개 커스텀"
+          }
+        />
       </div>
 
       <h2 className="mt-8 text-lg font-semibold">선수 명단</h2>
@@ -108,16 +141,16 @@ export default function TeamDetailPage() {
       <div className="mt-6 flex flex-wrap gap-4">
         {!team.isOfficial && (
           <Link
-            href={`/teams/new?edit=${encodeURIComponent(team.id)}`}
+            href={`/teams/new/?edit=${encodeURIComponent(team.id)}`}
             className="text-sky-400 hover:underline"
           >
             팀 편집
           </Link>
         )}
-        <Link href="/play" className="text-emerald-400 hover:underline">
+        <Link href="/play/" className="text-emerald-400 hover:underline">
           이 팀으로 경기하기 →
         </Link>
-        <Link href="/teams" className="text-zinc-400 hover:underline">
+        <Link href="/teams/" className="text-zinc-400 hover:underline">
           ← 목록
         </Link>
       </div>

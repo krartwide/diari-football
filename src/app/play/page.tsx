@@ -68,12 +68,14 @@ export default function PlayPage() {
         if (mode === "single") {
           const match = simulateMatch(home, away, settings);
           saveMatch(match);
-          router.push(`/match/${match.id}?live=1`);
+          router.push(`/match/?id=${encodeURIComponent(match.id)}&live=1`);
         } else {
           const series = simulateSeries(home, away, settings);
           saveSeries(series);
           const last = series.matches[series.matches.length - 1]!;
-          router.push(`/match/${last.id}?series=${series.id}&live=1`);
+          router.push(
+            `/match/?id=${encodeURIComponent(last.id)}&series=${encodeURIComponent(series.id)}&live=1`,
+          );
         }
       } catch (e) {
         console.error(e);

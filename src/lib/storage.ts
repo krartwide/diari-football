@@ -6,7 +6,6 @@ import type { MatchResult, SeriesResult, Team } from "@/types/football";
 const TEAMS_KEY = "diari-football-teams-v1";
 const MATCHES_KEY = "diari-football-matches-v1";
 const SERIES_KEY = "diari-football-series-v1";
-const SYNC_CODE_KEY = "diari-football-sync-code";
 
 function read<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
@@ -21,7 +20,19 @@ function read<T>(key: string, fallback: T): T {
 
 function write<T>(key: string, value: T) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(key, JSON.stringify(value));
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Quota exceeded — drop oldest matches and retry once
+    if (key === MATCHES_KEY && Array.isArray(value)) {
+      const trimmed = (value as MatchResult[]).slice(0, 50);
+      try {
+        localStorage.setItem(key, JSON.stringify(trimmed));
+      } catch {
+        /* ignore */
+      }
+    }
+  }
 }
 
 export function getCustomTeams(): Team[] {
@@ -49,7 +60,6 @@ export function saveMatch(match: MatchResult) {
   const matches = getSavedMatches().filter((m) => m.id !== match.id);
   matches.unshift(match);
   write(MATCHES_KEY, matches.slice(0, 200));
-  void syncMatchToServer(match);
 }
 
 export function getMatchById(id: string): MatchResult | undefined {
@@ -65,7 +75,6 @@ export function saveSeries(series: SeriesResult) {
   all.unshift(series);
   write(SERIES_KEY, all.slice(0, 100));
   for (const m of series.matches) saveMatch(m);
-  void syncSeriesToServer(series);
 }
 
 export function exportBackupCode(): string {
@@ -98,8 +107,11 @@ export function importBackupCode(code: string): { ok: boolean; error?: string } 
 }
 
 export function matchShareCode(match: MatchResult): string {
-  // Strip bulky team player lists partially? Keep full for accuracy.
   return compressToEncodedURIComponent(JSON.stringify({ t: "match", m: match }));
+}
+
+export function seriesShareCode(series: SeriesResult): string {
+  return compressToEncodedURIComponent(JSON.stringify({ t: "series", s: series }));
 }
 
 export function decodeShareCode(code: string): MatchResult | SeriesResult | null {
@@ -115,75 +127,12 @@ export function decodeShareCode(code: string): MatchResult | SeriesResult | null
   }
 }
 
-export function getOrCreateSyncCode(): string {
+function publicBasePath(): string {
+  return (process.env.NEXT_PUBLIC_BASE_PATH ?? "").replace(/\/$/, "");
+}
+
+/** Share URL for static GitHub Pages — payload rides in the hash. */
+export function buildShareUrl(code: string): string {
   if (typeof window === "undefined") return "";
-  let code = localStorage.getItem(SYNC_CODE_KEY);
-  if (!code) {
-    code = `DF-${Math.random().toString(36).slice(2, 6)}-${Date.now().toString(36)}`.toUpperCase();
-    localStorage.setItem(SYNC_CODE_KEY, code);
-  }
-  return code;
-}
-
-async function syncMatchToServer(match: MatchResult) {
-  try {
-    const syncCode = getOrCreateSyncCode();
-    await fetch("/api/matches", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ syncCode, type: "match", payload: match }),
-    });
-  } catch {
-    // offline / no server — local only
-  }
-}
-
-async function syncSeriesToServer(series: SeriesResult) {
-  try {
-    const syncCode = getOrCreateSyncCode();
-    await fetch("/api/matches", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ syncCode, type: "series", payload: series }),
-    });
-  } catch {
-    // ignore
-  }
-}
-
-export async function pullFromServer(): Promise<number> {
-  try {
-    const syncCode = getOrCreateSyncCode();
-    const res = await fetch(`/api/matches?syncCode=${encodeURIComponent(syncCode)}`);
-    if (!res.ok) return 0;
-    const data = (await res.json()) as {
-      matches?: MatchResult[];
-      series?: SeriesResult[];
-    };
-    let added = 0;
-    if (data.matches?.length) {
-      const existing = getSavedMatches();
-      const ids = new Set(existing.map((m) => m.id));
-      const merged = [...existing];
-      for (const m of data.matches) {
-        if (!ids.has(m.id)) {
-          merged.push(m);
-          added++;
-        }
-      }
-      write(MATCHES_KEY, merged.slice(0, 200));
-    }
-    if (data.series?.length) {
-      const existing = getSavedSeries();
-      const ids = new Set(existing.map((s) => s.id));
-      const merged = [...existing];
-      for (const s of data.series) {
-        if (!ids.has(s.id)) merged.push(s);
-      }
-      write(SERIES_KEY, merged.slice(0, 100));
-    }
-    return added;
-  } catch {
-    return 0;
-  }
+  return `${window.location.origin}${publicBasePath()}/share/#${code}`;
 }
