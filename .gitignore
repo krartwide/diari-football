@@ -52,3 +52,7 @@ __pycache__/
 *.pyc
 .env*
 .DS_Store
+
+# local generation / screenshot helpers
+scripts/rosters/
+scripts/screenshots.mjs
