@@ -1,8 +1,20 @@
-import type { Team } from "@/types/football";
+import type { Team } from '@/types/football';
+import { europeTeams } from './europe';
+import { southAmericaTeams } from './southAmerica';
+import { africaTeams } from './africa';
+import { asiaTeams } from './asia';
+import { concacafTeams } from './concacaf';
+import { oceaniaTeams } from './oceania';
 
-/** Populated by region modules; starts empty until nation files are generated. */
-export const ALL_OFFICIAL_TEAMS: Team[] = [];
+export const ALL_OFFICIAL_TEAMS: Team[] = [
+  ...europeTeams,
+  ...southAmericaTeams,
+  ...africaTeams,
+  ...asiaTeams,
+  ...concacafTeams,
+  ...oceaniaTeams,
+].sort((a, b) => a.fifaRank - b.fifaRank);
 
-export function getOfficialTeam(id: string): Team | undefined {
-  return ALL_OFFICIAL_TEAMS.find((t) => t.id === id || t.fifaCode === id);
+export function getOfficialTeam(id: string) {
+  return ALL_OFFICIAL_TEAMS.find(t => t.id === id || t.fifaCode === id);
 }

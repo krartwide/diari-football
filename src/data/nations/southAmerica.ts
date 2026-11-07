@@ -34,7 +34,7 @@ export const southAmericaTeams = [
     confederation: "CONMEBOL",
     fifaRank: 2,
     colors: { primary: "#FFFFFF", secondary: "#1B4F9C", accent: "#FFFFFF", pattern: "stripes" },
-    stadium: "에스타디오 모누멘탈",
+    stadium: "Argentina National Stadium",
     manager: {
       name: "리오넬 스칼로니",
       nameEn: "Lionel Scaloni",
@@ -86,8 +86,8 @@ export const southAmericaTeams = [
     iso2: "br",
     confederation: "CONMEBOL",
     fifaRank: 6,
-    colors: { primary: "#F7E017", secondary: "#1D5EAF", accent: "#009C3B" },
-    stadium: "이스타지우 두 마라카낭",
+    colors: { primary: "#FFE540", secondary: "#2A4A9F", accent: "#4080FF" },
+    stadium: "Brazil National Stadium",
     manager: {
       name: "카를로 안첼로티",
       nameEn: "Carlo Ancelotti",
@@ -144,10 +144,10 @@ export const southAmericaTeams = [
     manager: {
       name: "네스토르 로렌조",
       nameEn: "Néstor Lorenzo",
-      nationality: "아르헨티나",
+      nationality: "Colombia",
       personality: "압박형",
       preferredFormation: "4-3-3",
-      since: 2022,
+      since: 2024,
     },
     tactics: {
       formation: "4-3-3",
@@ -247,9 +247,9 @@ export const southAmericaTeams = [
     colors: { primary: "#FFE80B", secondary: "#0D183B", accent: "#253167" },
     stadium: "Estadio Rodrigo Paz Delgado",
     manager: {
-      name: "세바스티안 베카세세",
-      nameEn: "Sebastian Beccacece",
-      nationality: "아르헨티나",
+      name: "마르셀로 가야르도",
+      nameEn: "Marcelo Gallardo",
+      nationality: "Ecuador",
       personality: "압박형",
       preferredFormation: "4-3-3",
       since: 2024,
@@ -351,12 +351,12 @@ export const southAmericaTeams = [
     colors: { primary: "#AA0000", secondary: "#FFFFFF", accent: "#AA0000" },
     stadium: "Estadio MonumentalEstadio Olímpico de la UCVEstadio Metropolitano de Mérida",
     manager: {
-      name: "페르난도 바티스타",
-      nameEn: "Fernando Batista",
-      nationality: "아르헨티나",
+      name: "오스왈도 비즈카론도",
+      nameEn: "Oswaldo Vizcarrondo",
+      nationality: "Venezuela",
       personality: "균형",
       preferredFormation: "4-3-3",
-      since: 2023,
+      since: 2024,
     },
     tactics: {
       formation: "4-3-3",
@@ -408,7 +408,7 @@ export const southAmericaTeams = [
       nationality: "Chile",
       personality: "균형",
       preferredFormation: "4-3-3",
-      since: 2025,
+      since: 2024,
     },
     tactics: {
       formation: "4-3-3",
@@ -455,12 +455,12 @@ export const southAmericaTeams = [
     colors: { primary: "#FFFFFF", secondary: "#000000", accent: "#FFFFFF", pattern: "gradient" },
     stadium: "Estadio Nacional",
     manager: {
-      name: "마누엘 바레토",
-      nameEn: "Manuel Barreto",
-      nationality: "페루",
+      name: "마노 메네제스",
+      nameEn: "Mano Menezes",
+      nationality: "Peru",
       personality: "균형",
       preferredFormation: "4-3-3",
-      since: 2025,
+      since: 2024,
     },
     tactics: {
       formation: "4-3-3",

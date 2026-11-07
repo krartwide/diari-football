@@ -1,83 +1,81 @@
-import { makeTeam, type RawPlayer } from './_helpers';
+import type { Position } from '@/types/football';
+import { makeTeam } from './_helpers';
 
-const positions: RawPlayer['position'][] = [
-  'GK', 'GK',
-  'RB', 'CB', 'CB', 'CB', 'LB', 'LB',
-  'CDM', 'CM', 'CM', 'CAM', 'RM', 'LM',
-  'RW', 'ST', 'ST', 'LW', 'CF', 'RW',
+type RosterRow = [
+  name: string,
+  nameEn: string,
+  position: Position,
+  age: number,
+  club: string,
+  tier: 'star' | 'solid' | 'fringe',
+  isCaptain: boolean,
+  number: number,
 ];
 
-function newZealandRoster(): RawPlayer[] {
-  const names = [
-    '올리버 세일/Oliver Sail',
-    '알렉스 폴슨/Alex Paulsen',
-    '팀 페인/Tim Payne',
-    '마이클 복솔/Michael Boxall',
-    '토미 스미스/Tommy Smith',
-    '핀 서먼/Finn Surman',
-    '리베라토 카카체/Liberato Cacace',
-    '칼럼 엘리엇/Callan Elliot',
-    '조 벨/Joe Bell',
-    '마크 스타메니치/Marko Stamenic',
-    '맷 가벳/Matt Garbett',
-    '사프리트 싱/Sarpreet Singh',
-    '엘리 저스트/Elijah Just',
-    '클레이턴 루이스/Clayton Lewis',
-    '벤 올드/Ben Old',
-    '*크리스 우드/Chris Wood',
-    '코스타 바바루시스/Kosta Barbarouses',
-    '캘럼 매카왓/Callum McCowatt',
-    '맥스 마타/Max Mata',
-    '알렉스 그리브/Alex Greive',
-  ];
-
-  return names.map((entry, index) => {
-    const captain = entry.startsWith('*');
-    const [name, nameEn] = (captain ? entry.slice(1) : entry).split('/');
-    return {
-      name,
-      nameEn,
-      number: index + 1,
-      position: positions[index],
-      age: 21 + (((index + 1) * 7 + nameEn.length) % 13),
-      club: '국가대표팀',
-      isCaptain: captain || undefined,
-      tier: index < 3 ? 'star' : index < 16 ? 'solid' : 'fringe',
-    };
-  });
+function roster(rows: RosterRow[]) {
+  return rows.map(([name, nameEn, position, age, club, tier, isCaptain, number]) => ({
+    name,
+    nameEn,
+    position,
+    age,
+    club,
+    tier,
+    isCaptain: isCaptain || undefined,
+    number,
+  }));
 }
 
 export const oceaniaTeams = [
   makeTeam({
-    name: '뉴질랜드',
-    nameEn: 'New Zealand',
-    fifaCode: 'NZL',
-    iso2: 'nz',
-    confederation: 'OFC',
-    fifaRank: 86,
-    colors: {
-      primary: '#ffffff',
-      secondary: '#000000',
-      accent: '#c0c0c0',
-    },
-    stadium: 'Eden Park',
+    name: "뉴질랜드",
+    nameEn: "New Zealand",
+    fifaCode: "NZL",
+    iso2: "nz",
+    confederation: "OFC",
+    fifaRank: 88,
+    colors: { primary: "#FFFFFF", secondary: "#000000", accent: "#FFFFFF" },
+    stadium: "New Zealand National Stadium",
     manager: {
-      name: '대런 베이즐리',
-      nameEn: 'Darren Bazeley',
-      nationality: '잉글랜드',
-      personality: '균형',
-      preferredFormation: '4-3-3',
-      since: 2023,
+      name: "대런 베이즐리",
+      nameEn: "Darren Bazeley",
+      nationality: "New Zealand",
+      personality: "수비적",
+      preferredFormation: "4-3-3",
+      since: 2024,
     },
     tactics: {
-      formation: '4-3-3',
-      mentality: 'balanced',
-      pressing: 6,
-      tempo: 7,
-      width: 7,
-      buildUp: 'mixed',
-      defensiveLine: 6,
+      formation: "4-3-3",
+      mentality: "balanced",
+      pressing: 5,
+      tempo: 6,
+      width: 6,
+      buildUp: "mixed",
+      defensiveLine: 5,
     },
-    players: newZealandRoster(),
+    players: roster([
+      ["알렉스 폴슨", "Alex Paulsen", "GK", 24, "Motherwell", "solid", false, 1],
+      ["마이클 우드", "Michael Woud", "GK", 27, "Auckland FC", "fringe", false, 12],
+      ["헨리 그레이", "Henry Gray", "GK", 21, "Wellington Phoenix", "fringe", false, 23],
+      ["캘런 엘리엇", "Callan Elliot", "CB", 27, "Auckland FC", "solid", false, 2],
+      ["타일러 빈던", "Tyler Bindon", "LB", 21, "Charlton Athletic", "solid", false, 3],
+      ["빌 투일로마", "Bill Tuiloma", "RB", 31, "Wellington Phoenix", "star", false, 4],
+      ["제임스 맥개리", "James McGarry", "CB", 28, "Wellington Phoenix", "fringe", false, 5],
+      ["난도 피나케르", "Nando Pijnaker", "LWB", 27, "Auckland FC", "solid", false, 6],
+      ["매튜 셰리던", "Matthew Sheridan", "RWB", 22, "Unattached", "fringe", false, 7],
+      ["핀 서먼", "Finn Surman", "CB", 23, "Portland Timbers", "solid", false, 8],
+      ["프란시스 드 브리스", "Francis de Vries", "LB", 31, "Auckland FC", "solid", false, 9],
+      ["라클란 베일리스", "Lachlan Bayliss", "CM", 24, "Auckland FC", "fringe", false, 10],
+      ["알렉스 루퍼", "Alex Rufer", "CDM", 30, "Wellington Phoenix", "solid", false, 11],
+      ["오웬 파커-프라이스", "Owen Parker-Price", "CAM", 27, "Örgryte", "fringe", false, 13],
+      ["매트 가베트", "Matt Garbett", "CM", 24, "Peterborough United", "solid", false, 14],
+      ["칼럼 맥코와트", "Callum McCowatt", "RM", 27, "AGF", "solid", false, 15],
+      ["로건 로저슨", "Logan Rogerson", "ST", 28, "Auckland FC", "solid", false, 16],
+      ["크리스 우드", "Chris Wood", "LW", 34, "Nottingham Forest", "star", true, 17],
+      ["제시 랜달", "Jesse Randall", "RW", 24, "Dundee United", "solid", false, 18],
+      ["리암 길리온", "Liam Gillion", "CF", 24, "Unattached", "fringe", false, 19],
+      ["코르반 파이퍼", "Corban Piper", "ST", 24, "Unattached", "fringe", false, 20],
+      ["네이선 워커", "Nathan Walker", "ST", 20, "Unattached", "fringe", false, 21],
+      ["마이클 박스올", "Michael Boxall", "RB", 38, "Minnesota United", "star", false, 22],
+    ]),
   }),
 ];

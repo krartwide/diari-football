@@ -1,0 +1,47 @@
+[
+  {
+    "name": "스페인",
+    "nameEn": "Spain",
+    "fifaCode": "ESP",
+    "iso2": "es",
+    "confederation": "UEFA",
+    "fifaRank": 1,
+    "colors": {
+      "primary": "#C60B1E",
+      "secondary": "#F1BF00",
+      "accent": "#FFFFFF",
+      "pattern": "solid"
+    },
+    "stadium": "Estadio Santiago Bernabéu",
+    "manager": {
+      "name": "루이스 데 라 푸엔테",
+      "nameEn": "Luis de la Fuente",
+      "nationality": "Spain",
+      "personality": "점유율",
+      "preferredFormation": "4-3-3",
+      "since": 2022
+    },
+    "tactics": {
+      "formation": "4-3-3",
+      "mentality": "attacking",
+      "pressing": 8,
+      "tempo": 8,
+      "width": 7,
+      "buildUp": "short",
+      "defensiveLine": 8
+    },
+    "players": [
+      {
+        "name": "로드리",
+        "nameEn": "Rodri",
+        "number": 16,
+        "position": "CDM",
+        "age": 29,
+        "club": "Manchester City",
+        "tier": "star",
+        "isCaptain": true
+      }
+    ],
+    "worldCupTitles": 1
+  }
+]
