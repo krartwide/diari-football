@@ -12,19 +12,11 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
 export default function PlayPage() {
   const router = useRouter();
   const [custom, setCustom] = useState<Team[]>([]);
-  const [homeId, setHomeId] = useState("");
-  const [awayId, setAwayId] = useState("");
+  const [homeId, setHomeId] = useState(ALL_OFFICIAL_TEAMS[0]?.id ?? "");
+  const [awayId, setAwayId] = useState(ALL_OFFICIAL_TEAMS[1]?.id ?? "");
   const [mode, setMode] = useState<MatchMode>("single");
   const [homeAdvantage, setHomeAdvantage] = useState(true);
   const [competition, setCompetition] = useState("친선 경기");
@@ -46,16 +38,23 @@ export default function PlayPage() {
   }, [custom]);
 
   useEffect(() => {
-    if (!homeId && teams[0]) setHomeId(teams[0].id);
-    if (!awayId && teams[1]) setAwayId(teams[1].id);
+    if (teams.length < 2) return;
+    if (!teams.some((t) => t.id === homeId)) setHomeId(teams[0]!.id);
+    if (!teams.some((t) => t.id === awayId) || awayId === homeId) {
+      const other = teams.find((t) => t.id !== homeId) ?? teams[1]!;
+      setAwayId(other.id);
+    }
   }, [teams, homeId, awayId]);
 
   const home = teams.find((t) => t.id === homeId);
   const away = teams.find((t) => t.id === awayId);
 
+  const [error, setError] = useState<string | null>(null);
+
   const start = () => {
     if (!home || !away || home.id === away.id) return;
     setBusy(true);
+    setError(null);
     const settings: MatchSettings = {
       mode,
       homeAdvantage,
@@ -65,15 +64,21 @@ export default function PlayPage() {
 
     // defer so UI can show busy
     setTimeout(() => {
-      if (mode === "single") {
-        const match = simulateMatch(home, away, settings);
-        saveMatch(match);
-        router.push(`/match/${match.id}?live=1`);
-      } else {
-        const series = simulateSeries(home, away, settings);
-        saveSeries(series);
-        const last = series.matches[series.matches.length - 1]!;
-        router.push(`/match/${last.id}?series=${series.id}&live=1`);
+      try {
+        if (mode === "single") {
+          const match = simulateMatch(home, away, settings);
+          saveMatch(match);
+          router.push(`/match/${match.id}?live=1`);
+        } else {
+          const series = simulateSeries(home, away, settings);
+          saveSeries(series);
+          const last = series.matches[series.matches.length - 1]!;
+          router.push(`/match/${last.id}?series=${series.id}&live=1`);
+        }
+      } catch (e) {
+        console.error(e);
+        setError(e instanceof Error ? e.message : "시뮬레이션에 실패했습니다.");
+        setBusy(false);
       }
     }, 50);
   };
@@ -173,6 +178,12 @@ export default function PlayPage() {
           </div>
         </div>
 
+        {error && (
+          <p className="rounded-lg border border-red-500/40 bg-red-950/40 px-3 py-2 text-sm text-red-200">
+            {error}
+          </p>
+        )}
+
         <Button
           className="w-full bg-emerald-600 hover:bg-emerald-500"
           size="lg"
@@ -200,18 +211,20 @@ function TeamPicker({
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
-      <Select value={value} onValueChange={(v) => v && onChange(v)}>
-        <SelectTrigger className="border-white/10 bg-black/30">
-          <SelectValue placeholder="팀 선택" />
-        </SelectTrigger>
-        <SelectContent className="max-h-72">
-          {teams.map((t) => (
-            <SelectItem key={t.id} value={t.id}>
-              {t.name} ({t.fifaCode}) · #{t.fifaRank}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-9 w-full rounded-lg border border-white/10 bg-black/30 px-2 text-sm text-white"
+      >
+        <option value="" disabled>
+          팀 선택
+        </option>
+        {teams.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.name} ({t.fifaCode}) · #{t.fifaRank}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }
