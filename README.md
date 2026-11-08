@@ -1,5 +1,7 @@
 # Diari Football
 
+**라이브:** https://krartwide.github.io/diari-football/
+
 [Diari](https://krartwide.github.io/diari/) 스타일의 **정적** 축구 시뮬레이션 웹앱입니다.  
 서버 없이 GitHub Pages에 올리며, 경기는 브라우저에 저장됩니다.
 
