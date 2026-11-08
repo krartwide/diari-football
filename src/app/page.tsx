@@ -42,19 +42,19 @@ export default function HomePage() {
             href="/teams/"
             className={cn(buttonVariants({ variant: "outline" }), "border-zinc-600")}
           >
-            공식 국가대표 보기
+            공개 팀 보기
           </Link>
         </div>
 
         <div className="mt-16 grid gap-6 border-t border-white/10 pt-10 sm:grid-cols-3">
           {[
             {
-              t: "팀 & OVR",
-              d: "시즌 기록으로 능력치와 최종 OVR를 계산합니다. 공개/비공개 팀을 만들 수 있습니다.",
+              t: "FC 27 레이팅",
+              d: "EA 공식 능력치·플레이스타일(+/일반) 기준. 국가대표와 5대 리그 클럽을 편집할 수 있습니다.",
             },
             {
               t: "리얼 시뮬레이션",
-              d: "교체·부상·파울·골·오프사이드가 전술과 선수에 맞춰 진행됩니다.",
+              d: "교체·부상·파울·골·오프사이드가 전술과 플레이스타일에 맞춰 진행됩니다.",
             },
             {
               t: "경기지 & 리플레이",

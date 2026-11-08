@@ -72,7 +72,12 @@ export function getAllTeams(): Team[] {
   const saved = getCustomTeams();
   const byId = new Map(saved.map((t) => [t.id, t]));
   const official = ALL_OFFICIAL_TEAMS.map((t) => byId.get(t.id) ?? t);
-  const customOnly = saved.filter((t) => !t.isOfficial && !t.id.startsWith("official-"));
+  const customOnly = saved.filter(
+    (t) =>
+      !t.isOfficial &&
+      !t.id.startsWith("official-") &&
+      !t.id.startsWith("club-"),
+  );
   return [...customOnly, ...official];
 }
 

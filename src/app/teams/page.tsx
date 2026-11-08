@@ -2,27 +2,24 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ALL_OFFICIAL_TEAMS } from "@/data/nations";
+import {
+  ALL_OFFICIAL_TEAMS,
+  PUBLIC_CATEGORIES,
+  TEAM_CATEGORY_LABEL,
+} from "@/data/nations";
 import { getAllTeams, getCustomTeams } from "@/lib/storage";
 import { teamAverageOvr } from "@/lib/ovr";
-import type { Confederation, Team } from "@/types/football";
+import type { Team, TeamCategory } from "@/types/football";
 import { Input } from "@/components/ui/input";
-const CONF: Array<Confederation | "ALL"> = [
-  "ALL",
-  "UEFA",
-  "CONMEBOL",
-  "CAF",
-  "AFC",
-  "CONCACAF",
-  "OFC",
-];
+
+type Tab = TeamCategory | "all_custom";
 
 export default function TeamsPage() {
   const [teamsAll, setTeamsAll] = useState<Team[]>([]);
   const [customCount, setCustomCount] = useState(0);
   const [editedIds, setEditedIds] = useState<Set<string>>(new Set());
   const [q, setQ] = useState("");
-  const [conf, setConf] = useState<(typeof CONF)[number]>("ALL");
+  const [tab, setTab] = useState<Tab>("national");
 
   useEffect(() => {
     setTeamsAll(getAllTeams());
@@ -31,18 +28,40 @@ export default function TeamsPage() {
     setEditedIds(new Set(saved.filter((t) => t.isOfficial).map((t) => t.id)));
   }, []);
 
+  const counts = useMemo(() => {
+    const c: Record<string, number> = {};
+    for (const cat of PUBLIC_CATEGORIES) {
+      c[cat] = teamsAll.filter((t) => (t.category ?? "national") === cat).length;
+    }
+    c.all_custom = teamsAll.filter((t) => !t.isOfficial).length;
+    return c;
+  }, [teamsAll]);
+
   const teams = useMemo(() => {
     return teamsAll.filter((t) => {
-      if (conf !== "ALL" && t.confederation !== conf) return false;
+      if (tab === "all_custom") {
+        if (t.isOfficial) return false;
+      } else if ((t.category ?? "national") !== tab) {
+        return false;
+      }
       if (!q.trim()) return true;
       const s = q.toLowerCase();
       return (
         t.name.includes(q) ||
         t.nameEn.toLowerCase().includes(s) ||
-        t.fifaCode.toLowerCase().includes(s)
+        t.fifaCode.toLowerCase().includes(s) ||
+        (t.leagueName?.toLowerCase().includes(s) ?? false)
       );
     });
-  }, [teamsAll, q, conf]);
+  }, [teamsAll, q, tab]);
+
+  const tabs: Array<{ id: Tab; label: string }> = [
+    ...PUBLIC_CATEGORIES.map((id) => ({
+      id,
+      label: TEAM_CATEGORY_LABEL[id],
+    })),
+    { id: "all_custom", label: "커스텀" },
+  ];
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
@@ -50,7 +69,7 @@ export default function TeamsPage() {
         <div>
           <h1 className="font-[family-name:var(--font-display)] text-3xl text-white">팀</h1>
           <p className="mt-1 text-sm text-zinc-400">
-            공식 국가대표 {ALL_OFFICIAL_TEAMS.length}개 (편집 가능) · 커스텀 {customCount}개 · FC 27 레이팅
+            공개 팀 {ALL_OFFICIAL_TEAMS.length}개 · 커스텀 {customCount}개 · EA FC 27 공식 능력치·플레이스타일
           </p>
         </div>
         <Link
@@ -61,27 +80,29 @@ export default function TeamsPage() {
         </Link>
       </div>
 
-      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+      <div className="mt-6 flex flex-wrap gap-1.5">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setTab(t.id)}
+            className={`rounded-md px-2.5 py-1.5 text-xs ${
+              tab === t.id ? "bg-emerald-700 text-white" : "bg-white/5 text-zinc-400"
+            }`}
+          >
+            {t.label}
+            <span className="ml-1 opacity-70">{counts[t.id] ?? 0}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-4">
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="팀 검색…"
           className="border-white/10 bg-[#14181f]"
         />
-        <div className="flex flex-wrap gap-1">
-          {CONF.map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => setConf(c)}
-              className={`rounded-md px-2.5 py-1.5 text-xs ${
-                conf === c ? "bg-emerald-700 text-white" : "bg-white/5 text-zinc-400"
-              }`}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
       </div>
 
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -111,7 +132,8 @@ export default function TeamsPage() {
                     {t.name}
                   </div>
                   <div className="text-xs text-zinc-500">
-                    {t.nameEn} · FIFA #{t.fifaRank}
+                    {t.nameEn}
+                    {t.category === "national" ? ` · FIFA #${t.fifaRank}` : t.leagueName ? ` · ${t.leagueName}` : ""}
                     {t.isOfficial && editedIds.has(t.id) && " · 편집됨"}
                     {!t.isOfficial && " · 커스텀"}
                     {t.visibility === "private" && " · 비공개"}

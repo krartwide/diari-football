@@ -7,13 +7,22 @@
 
 ## 기능
 
-- 공식 국가대표 공개 팀 128개 (편집 가능, 기기별 저장) + 커스텀 공개/비공개 팀
-- **EA Sports FC 27** 공식 레이팅 우선 + 클럽 품질 기반 OVR
-- 시즌 기록 기반 능력치, 감독·전술·퍼스널 컬러
+- **공개 팀 분류:** 국가대표 · 프리미어 리그 · 분데스리가 · 라리가 · 세리에 A · 리그 1
+- 공식 팀 편집 가능 (기기 localStorage, 원본 복구 지원)
+- **EA Sports FC 27** 공식 능력치(세부 스탯 포함) + **플레이스타일 / 플레이스타일+**
+- 5대 리그 1부 클럽 스쿼드 포함 (EA 레이팅 DB 기준)
 - 단판 / 2판 합산 / 홈앤어웨이 / 다전제 + 홈 어드밴티지
 - 라이브 중계, 골·파울·오프사이드 이벤트 그래픽
-- 경기지·라인업·통계
-- **로컬 저장 + 백업 코드 + 공유 링크(해시)** 로 폰·PC 간 이동 (서버 불필요)
+- **로컬 저장 + 백업 코드 + 공유 링크(해시)** 로 폰·PC 간 이동
+
+## 데이터
+
+선수 OVR·능력치·플레이스타일은 EA 공개 레이팅(FC 27) 스냅샷을 기반으로 생성합니다.
+
+```bash
+# CSV를 /tmp/fc27/players.csv 에 둔 뒤
+python3 scripts/generate-fc27-teams.py
+```
 
 ## 로컬 실행
 
@@ -24,27 +33,16 @@ npm run dev
 
 `http://127.0.0.1:3456` 에서 확인합니다.
 
-정적 빌드 미리보기:
-
 ```bash
 npm run build
 npm start
 ```
 
-## GitHub Pages 배포
-
-1. GitHub에 저장소를 만들고 이 코드를 푸시합니다.
-2. 저장소 **Settings → Pages → Build and deployment** 에서 Source를 **GitHub Actions** 로 둡니다.
-3. `main`(또는 `master`)에 푸시하면 `.github/workflows/pages.yml` 이  
-   `https://<user>.github.io/<repo>/` 로 배포합니다.
-4. 예: 저장소 이름이 `diari-football` 이면  
-   `https://you.github.io/diari-football/`  
-   (Diari의 `/diari/` 와 같은 형식입니다.)
-
-로컬에서 base path를 맞춰 빌드하려면:
+## GitHub Pages
 
 ```bash
 NEXT_PUBLIC_BASE_PATH=/diari-football npm run build
+# out/ 을 gh-pages 브랜치로 배포
 ```
 
 ## 스택

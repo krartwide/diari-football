@@ -9,6 +9,7 @@ import type {
   Team,
   TeamMatchStats,
 } from "@/types/football";
+import { effectiveAttributes } from "@/lib/ovr";
 import { selectStartingXi, toMatchLines } from "./lineup";
 import { createRng, type Rng } from "./rng";
 
@@ -85,7 +86,8 @@ function attackStrength(team: Team, lines: PlayerMatchLine[]): number {
   const base =
     pool.reduce((s, l) => {
       const p = team.players.find((x) => x.id === l.playerId);
-      return s + (p?.attributes.shooting ?? 70) + (p?.attributes.dribbling ?? 70);
+      const a = p ? effectiveAttributes(p) : null;
+      return s + (a?.shooting ?? 70) + (a?.dribbling ?? 70);
     }, 0) /
     (pool.length * 2);
   const m = mentalityMult(team.tactics.mentality);
@@ -101,8 +103,9 @@ function defenseStrength(team: Team, lines: PlayerMatchLine[]): number {
   const base =
     pool.reduce((s, l) => {
       const p = team.players.find((x) => x.id === l.playerId);
-      const gk = p?.attributes.goalkeeping ?? 0;
-      return s + (p?.attributes.defending ?? 70) + gk * 0.3 + (p?.attributes.physical ?? 70) * 0.3;
+      const a = p ? effectiveAttributes(p) : null;
+      const gk = a?.goalkeeping ?? 0;
+      return s + (a?.defending ?? 70) + gk * 0.3 + (a?.physical ?? 70) * 0.3;
     }, 0) / pool.length;
   const m = mentalityMult(team.tactics.mentality);
   return base * m.defense * (0.95 + team.tactics.defensiveLine / 80);
@@ -321,7 +324,7 @@ export function simulateMatch(
     const passer = pickOnPitch(attackSide.lines, attackSide.team, ["CM", "CDM", "CAM", "CB", "LB", "RB"], rng);
     if (passer) {
       const p = attackSide.team.players.find((x) => x.id === passer.playerId);
-      const acc = (p?.attributes.passing ?? 70) / 100;
+      const acc = ((p ? effectiveAttributes(p).passing : 70) ) / 100;
       const attempts = rng.int(2, 6);
       passer.passes += attempts;
       attackSide.stats.passes += attempts;
@@ -551,10 +554,12 @@ export function simulateMatch(
       atkSide.stats.shots += 1;
 
       const shotQuality =
-        ((sp?.attributes.shooting ?? 70) / 100) *
+        (((sp ? effectiveAttributes(sp).shooting : 70) ) / 100) *
         (isPenalty ? 1.35 : fromSetPiece ? 1.1 : 1) *
         (0.85 + rng.next() * 0.3);
-      const saveQuality = ((gk?.attributes.goalkeeping ?? gk?.ovr ?? 70) / 100) * (0.9 + rng.next() * 0.25);
+      const gkAttr = gk ? effectiveAttributes(gk) : null;
+      const saveQuality =
+        ((gkAttr?.goalkeeping ?? gk?.ovr ?? 70) / 100) * (0.9 + rng.next() * 0.25);
       const blockChance = def / 220;
 
       if (!isPenalty && rng.chance(blockChance)) {

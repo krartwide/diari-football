@@ -1,23 +1,65 @@
-export type Position = 'GK' | 'CB' | 'LB' | 'RB' | 'LWB' | 'RWB' | 'CDM' | 'CM' | 'CAM' | 'LM' | 'RM' | 'LW' | 'RW' | 'CF' | 'ST';
+import type { PlayStyleId } from "@/data/playstyles";
 
-export interface PlayerSeasonStats {
-  appearances: number;
-  goals: number;
-  assists: number;
-  yellowCards: number;
-  redCards: number;
-  fouls: number;
+export type Position =
+  | "GK"
+  | "CB"
+  | "LB"
+  | "RB"
+  | "LWB"
+  | "RWB"
+  | "CDM"
+  | "CM"
+  | "CAM"
+  | "LM"
+  | "RM"
+  | "LW"
+  | "RW"
+  | "CF"
+  | "ST";
+
+/** FC 27 detailed outfield attributes (official card facets + sub-stats). */
+export interface OutfieldDetailed {
+  acceleration: number;
+  sprintSpeed: number;
+  positioning: number;
+  finishing: number;
+  shotPower: number;
+  longShots: number;
+  volleys: number;
+  penalties: number;
+  vision: number;
+  crossing: number;
+  fkAccuracy: number;
+  shortPassing: number;
+  longPassing: number;
+  curve: number;
+  agility: number;
+  balance: number;
+  reactions: number;
+  ballControl: number;
+  dribbling: number;
+  composure: number;
   interceptions: number;
-  dribbleSuccessRate: number; // 0-100
-  shotsOnTarget: number;
-  shots: number;
-  passAccuracy: number; // 0-100
-  tacklesWon: number;
-  cleanSheets?: number; // GK
-  saves?: number; // GK
-  goalsConceded?: number; // GK
+  headingAccuracy: number;
+  defensiveAwareness: number;
+  standingTackle: number;
+  slidingTackle: number;
+  jumping: number;
+  stamina: number;
+  strength: number;
+  aggression: number;
 }
 
+export interface GoalkeeperDetailed {
+  diving: number;
+  handling: number;
+  kicking: number;
+  reflexes: number;
+  speed: number;
+  positioning: number;
+}
+
+/** Six card facets + optional detailed breakdown (EA FC 27). */
 export interface PlayerAttributes {
   pace: number;
   shooting: number;
@@ -25,36 +67,48 @@ export interface PlayerAttributes {
   dribbling: number;
   defending: number;
   physical: number;
+  /** Average of GK facets when position is GK */
   goalkeeping?: number;
+  detailed?: OutfieldDetailed;
+  gkDetailed?: GoalkeeperDetailed;
+}
+
+export interface PlayerPlayStyle {
+  id: PlayStyleId;
+  /** true = PlayStyle+ (gold); false = base (silver) */
+  plus: boolean;
 }
 
 export interface Player {
   id: string;
-  name: string; // Korean transliteration preferred for display
+  name: string;
   nameEn: string;
   number: number;
   position: Position;
   age: number;
   club: string;
   height: number;
-  preferredFoot: 'L' | 'R' | 'B';
-  stats: PlayerSeasonStats;
+  preferredFoot: "L" | "R" | "B";
   attributes: PlayerAttributes;
   ovr: number;
+  playstyles: PlayerPlayStyle[];
   isCaptain?: boolean;
+  eaId?: number;
+  weakFoot?: number;
+  skillMoves?: number;
 }
 
 export type ManagerPersonality =
-  | '공격적'
-  | '수비적'
-  | '균형'
-  | '압박형'
-  | '점유율'
-  | '카리스마'
-  | '냉철'
-  | '열정적'
-  | '실험적'
-  | '수비우선';
+  | "공격적"
+  | "수비적"
+  | "균형"
+  | "압박형"
+  | "점유율"
+  | "카리스마"
+  | "냉철"
+  | "열정적"
+  | "실험적"
+  | "수비우선";
 
 export interface Manager {
   name: string;
@@ -66,31 +120,42 @@ export interface Manager {
 }
 
 export interface TeamTactics {
-  formation: string; // e.g. '4-3-3'
-  mentality: 'ultra-defensive' | 'defensive' | 'balanced' | 'attacking' | 'ultra-attacking';
-  pressing: number; // 1-10
-  tempo: number; // 1-10
-  width: number; // 1-10
-  buildUp: 'short' | 'mixed' | 'long';
-  defensiveLine: number; // 1-10
+  formation: string;
+  mentality: "ultra-defensive" | "defensive" | "balanced" | "attacking" | "ultra-attacking";
+  pressing: number;
+  tempo: number;
+  width: number;
+  buildUp: "short" | "mixed" | "long";
+  defensiveLine: number;
 }
 
 export interface TeamColors {
   primary: string;
   secondary: string;
   accent: string;
-  pattern?: 'solid' | 'stripes' | 'hoops' | 'checkered' | 'gradient';
+  pattern?: "solid" | "stripes" | "hoops" | "checkered" | "gradient";
 }
 
-export type Confederation = 'UEFA' | 'CONMEBOL' | 'CAF' | 'AFC' | 'CONCACAF' | 'OFC';
+export type Confederation = "UEFA" | "CONMEBOL" | "CAF" | "AFC" | "CONCACAF" | "OFC";
+
+/** Public team browse categories */
+export type TeamCategory =
+  | "national"
+  | "premier_league"
+  | "bundesliga"
+  | "laliga"
+  | "serie_a"
+  | "ligue_1"
+  | "custom";
 
 export interface Team {
   id: string;
-  name: string; // Korean
+  name: string;
   nameEn: string;
   fifaCode: string;
-  visibility: 'public' | 'private';
+  visibility: "public" | "private";
   isOfficial: boolean;
+  category: TeamCategory;
   confederation: Confederation;
   fifaRank: number;
   colors: TeamColors;
@@ -101,15 +166,17 @@ export interface Team {
   tactics: TeamTactics;
   players: Player[];
   worldCupTitles?: number;
+  leagueName?: string;
+  eaClubId?: number;
 }
 
 export type MatchMode =
-  | 'single'
-  | 'two_leg_aggregate'
-  | 'home_and_away'
-  | 'best_of_three'
-  | 'best_of_five'
-  | 'korean_series';
+  | "single"
+  | "two_leg_aggregate"
+  | "home_and_away"
+  | "best_of_three"
+  | "best_of_five"
+  | "korean_series";
 
 export interface MatchSettings {
   mode: MatchMode;
@@ -167,29 +234,29 @@ export interface PlayerMatchLine {
 }
 
 export type MatchEventType =
-  | 'kickoff'
-  | 'half_time'
-  | 'second_half'
-  | 'full_time'
-  | 'goal'
-  | 'penalty_goal'
-  | 'penalty_miss'
-  | 'own_goal'
-  | 'shot'
-  | 'shot_on_target'
-  | 'shot_blocked'
-  | 'save'
-  | 'foul'
-  | 'yellow_card'
-  | 'red_card'
-  | 'second_yellow'
-  | 'offside'
-  | 'corner'
-  | 'substitution'
-  | 'injury'
-  | 'commentary'
-  | 'dribble'
-  | 'interception';
+  | "kickoff"
+  | "half_time"
+  | "second_half"
+  | "full_time"
+  | "goal"
+  | "penalty_goal"
+  | "penalty_miss"
+  | "own_goal"
+  | "shot"
+  | "shot_on_target"
+  | "shot_blocked"
+  | "save"
+  | "foul"
+  | "yellow_card"
+  | "red_card"
+  | "second_yellow"
+  | "offside"
+  | "corner"
+  | "substitution"
+  | "injury"
+  | "commentary"
+  | "dribble"
+  | "interception";
 
 export interface EventGraphic {
   goal?: {
@@ -267,5 +334,5 @@ export interface SeriesResult {
   homeAggregate: number;
   awayAggregate: number;
   winnerTeamId?: string;
-  status: 'completed' | 'in_progress';
+  status: "completed" | "in_progress";
 }
