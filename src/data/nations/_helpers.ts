@@ -1,6 +1,7 @@
+import { clubBand, clubBaseOvr } from "@/data/ratings/clubs";
+import { lookupEaOvr } from "@/data/ratings/eaFc25";
 import {
   enrichPlayer,
-  nationStrength,
   type PartialPlayer,
   type PlayerTier,
 } from "@/lib/ovr";
@@ -24,9 +25,8 @@ export type RawPlayer = {
   height?: number;
   preferredFoot?: "L" | "R" | "B";
   isCaptain?: boolean;
-  /** Quality tier. Defaults from squad order + nation rank. */
   tier?: PlayerTier;
-  /** Optional hard OVR override for well-known stars (45–94). */
+  /** Hard OVR override (use EA / official when known). */
   ovr?: number;
   stats?: Partial<PlayerSeasonStats>;
 };
@@ -52,27 +52,36 @@ function defaultHeight(position: Position, seed: number): number {
   return seeded(seed, 170, 188);
 }
 
-function defaultTier(fifaRank: number, idx: number, age: number): PlayerTier {
+function defaultTier(club: string, idx: number, age: number, ea?: number): PlayerTier {
+  if (ea != null) {
+    if (ea >= 88) return "worldClass";
+    if (ea >= 84) return "star";
+    if (ea >= 78) return "solid";
+    if (ea >= 70) return "fringe";
+    return age <= 21 ? "youth" : "fringe";
+  }
   if (age <= 19 && idx > 14) return "youth";
-  // worldClass only via explicit STAR_OVR / RawPlayer.tier — never by list order alone
-  if (idx < 2 && fifaRank <= 20) return "star";
-  if (idx < 1 && fifaRank <= 40) return "star";
-  if (idx < 11) return "solid";
+  const band = clubBand(club);
+  if (band === "elite" && idx < 3) return "star";
+  if ((band === "elite" || band === "top") && idx < 11) return "solid";
+  if (band === "strong" && idx < 11) return "solid";
+  if (idx < 11) return band === "amateur" || band === "lower" ? "solid" : "solid";
   if (idx < 18) return "fringe";
   return age <= 21 ? "youth" : "fringe";
 }
 
 /**
- * Season stats scaled by nation strength so weak nations don't post PL-star lines.
+ * Season stats scaled by club quality (skill proxy), not FIFA ranking.
  */
 function buildStats(
   position: Position,
   tier: PlayerTier,
   seed: number,
-  fifaRank: number,
+  club: string,
   overrides?: Partial<PlayerSeasonStats>,
 ): PlayerSeasonStats {
-  const ns = nationStrength(fifaRank);
+  const base = clubBaseOvr(club);
+  const level = Math.max(0.45, Math.min(1.05, (base - 50) / 40));
   const appsBase = tier === "worldClass" || tier === "star" ? 30 : tier === "solid" ? 24 : 16;
   const appearances = overrides?.appearances ?? seeded(seed + 1, appsBase - 4, appsBase + 5);
 
@@ -82,24 +91,24 @@ function buildStats(
   const isFwd = ["LW", "RW", "CF", "ST"].includes(position);
 
   const tierMult =
-    tier === "worldClass" ? 1.25 : tier === "star" ? 1.1 : tier === "solid" ? 1 : tier === "youth" ? 0.55 : 0.7;
-  const level = ns * tierMult;
+    tier === "worldClass" ? 1.2 : tier === "star" ? 1.08 : tier === "solid" ? 1 : tier === "youth" ? 0.55 : 0.72;
+  const scale = level * tierMult;
 
   let goals = 0;
   let assists = 0;
   if (isFwd) {
-    goals = Math.round(seeded(seed + 2, 4, 14) * level);
-    assists = Math.round(seeded(seed + 3, 2, 8) * level);
+    goals = Math.round(seeded(seed + 2, 3, 12) * scale);
+    assists = Math.round(seeded(seed + 3, 2, 7) * scale);
   } else if (isMid) {
-    goals = Math.round(seeded(seed + 2, 1, 6) * level);
-    assists = Math.round(seeded(seed + 3, 2, 9) * level);
+    goals = Math.round(seeded(seed + 2, 1, 5) * scale);
+    assists = Math.round(seeded(seed + 3, 2, 8) * scale);
   } else if (isDef) {
-    goals = Math.round(seeded(seed + 2, 0, 2) * level);
-    assists = Math.round(seeded(seed + 3, 0, 4) * level);
+    goals = Math.round(seeded(seed + 2, 0, 2) * scale);
+    assists = Math.round(seeded(seed + 3, 0, 4) * scale);
   }
 
-  const passBase = 68 + ns * 16 + (tier === "worldClass" || tier === "star" ? 3 : 0);
-  const dribBase = 48 + ns * 18 + (tier === "worldClass" || tier === "star" ? 4 : 0);
+  const passBase = 66 + level * 18 + (tier === "worldClass" || tier === "star" ? 2 : 0);
+  const dribBase = 46 + level * 20 + (tier === "worldClass" || tier === "star" ? 3 : 0);
 
   const stats: PlayerSeasonStats = {
     appearances,
@@ -107,101 +116,52 @@ function buildStats(
     assists: overrides?.assists ?? (isGk ? 0 : assists),
     yellowCards: overrides?.yellowCards ?? seeded(seed + 4, 1, 6),
     redCards: overrides?.redCards ?? (seed % 19 === 0 ? 1 : 0),
-    fouls: overrides?.fouls ?? seeded(seed + 5, 10, 38),
+    fouls: overrides?.fouls ?? seeded(seed + 5, 10, 36),
     interceptions:
       overrides?.interceptions ??
-      seeded(seed + 6, isDef ? 25 : isMid ? 18 : 6, Math.round((isDef ? 70 : isMid ? 50 : 20) * ns)),
+      seeded(seed + 6, isDef ? 22 : isMid ? 16 : 5, Math.round((isDef ? 65 : isMid ? 48 : 18) * level)),
     dribbleSuccessRate:
       overrides?.dribbleSuccessRate ?? seeded(seed + 7, Math.round(dribBase - 6), Math.round(dribBase + 8)),
     shotsOnTarget:
       overrides?.shotsOnTarget ??
-      (isGk ? 0 : seeded(seed + 8, isFwd ? 12 : 4, Math.round((isFwd ? 45 : 18) * level))),
+      (isGk ? 0 : seeded(seed + 8, isFwd ? 10 : 3, Math.round((isFwd ? 40 : 16) * scale))),
     shots:
       overrides?.shots ??
-      (isGk ? 0 : seeded(seed + 9, isFwd ? 28 : 10, Math.round((isFwd ? 90 : 40) * level))),
+      (isGk ? 0 : seeded(seed + 9, isFwd ? 24 : 8, Math.round((isFwd ? 80 : 35) * scale))),
     passAccuracy:
       overrides?.passAccuracy ?? seeded(seed + 10, Math.round(passBase - 5), Math.round(passBase + 6)),
     tacklesWon:
       overrides?.tacklesWon ??
       seeded(
         seed + 11,
-        isDef || position === "CDM" ? 18 : 8,
-        Math.round((isDef || position === "CDM" ? 65 : 30) * ns),
+        isDef || position === "CDM" ? 16 : 7,
+        Math.round((isDef || position === "CDM" ? 60 : 28) * level),
       ),
   };
 
   if (isGk) {
-    const cs =
+    stats.cleanSheets =
       overrides?.cleanSheets ??
-      seeded(seed + 12, Math.round(4 * ns), Math.round((tier === "worldClass" || tier === "star" ? 14 : 9) * ns));
-    const saves = overrides?.saves ?? seeded(seed + 13, 55, Math.round(100 + ns * 30));
-    const goalsConceded =
-      overrides?.goalsConceded ?? seeded(seed + 14, Math.round(18 + (1 - ns) * 25), Math.round(28 + (1 - ns) * 30));
-    stats.cleanSheets = cs;
-    stats.saves = saves;
-    stats.goalsConceded = goalsConceded;
+      seeded(seed + 12, Math.round(3 * level), Math.round((tier === "worldClass" || tier === "star" ? 13 : 8) * level));
+    stats.saves = overrides?.saves ?? seeded(seed + 13, 50, Math.round(95 + level * 35));
+    stats.goalsConceded =
+      overrides?.goalsConceded ??
+      seeded(seed + 14, Math.round(16 + (1 - level) * 22), Math.round(26 + (1 - level) * 28));
     stats.dribbleSuccessRate = overrides?.dribbleSuccessRate ?? seeded(seed + 7, 35, 50);
-    stats.passAccuracy = overrides?.passAccuracy ?? seeded(seed + 10, Math.round(65 + ns * 15), Math.round(78 + ns * 10));
+    stats.passAccuracy =
+      overrides?.passAccuracy ?? seeded(seed + 10, Math.round(64 + level * 14), Math.round(76 + level * 10));
   }
 
   return { ...stats, ...overrides };
 }
 
-/** Well-known ceiling OVRs (EA FC / real-world band). Key = lowercase nameEn. */
-const STAR_OVR: Record<string, number> = {
-  "kylian mbappé": 91,
-  "kylian mbappe": 91,
-  "lionel messi": 88,
-  "erling haaland": 91,
-  "vinícius júnior": 89,
-  "vinicius junior": 89,
-  "rodri": 89,
-  "jude bellingham": 90,
-  "lamine yamal": 86,
-  "harry kane": 89,
-  "kevin de bruyne": 88,
-  "mohamed salah": 88,
-  "robert lewandowski": 88,
-  "pedri": 87,
-  "bukayo saka": 87,
-  "phil foden": 87,
-  "bruno fernandes": 87,
-  "declan rice": 86,
-  "virgil van dijk": 88,
-  "thibaut courtois": 89,
-  "alisson": 89,
-  "emiliano martínez": 87,
-  "emiliano martinez": 87,
-  "antoine griezmann": 86,
-  "ousmane dembélé": 86,
-  "ousmane dembele": 86,
-  "rafael leão": 86,
-  "rafael leao": 86,
-  "khvicha kvaratskhelia": 86,
-  "florian wirtz": 87,
-  "jamal musiala": 87,
-  "lautaro martínez": 87,
-  "lautaro martinez": 87,
-  "julian alvarez": 85,
-  "julián álvarez": 85,
-  "son heung-min": 86,
-  "heung-min son": 86,
-  "kim min-jae": 84,
-  "lee kang-in": 82,
-};
-
-export function makePlayers(fifaCode: string, raw: RawPlayer[], fifaRank: number): Player[] {
+export function makePlayers(fifaCode: string, raw: RawPlayer[], _fifaRank?: number): Player[] {
   return raw.map((p, idx) => {
     const seed = hashStr(`${fifaCode}-${p.nameEn}-${p.number}`);
-    const known = STAR_OVR[p.nameEn.toLowerCase()];
-    const tier: PlayerTier =
-      p.tier ??
-      (known != null && known >= 88
-        ? "worldClass"
-        : known != null && known >= 84
-          ? "star"
-          : defaultTier(fifaRank, idx, p.age));
-    const stats = buildStats(p.position, tier, seed, fifaRank, p.stats);
+    const ea = lookupEaOvr(p.nameEn);
+    const knownOvr = p.ovr ?? ea;
+    const tier = p.tier ?? defaultTier(p.club, idx, p.age, ea);
+    const stats = buildStats(p.position, tier, seed, p.club, p.stats);
     const variance = seeded(seed + 99, -2, 2);
     const partial: PartialPlayer = {
       id: `${fifaCode.toLowerCase()}-${p.number}-${p.nameEn.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
@@ -215,9 +175,9 @@ export function makePlayers(fifaCode: string, raw: RawPlayer[], fifaRank: number
       preferredFoot: p.preferredFoot ?? (seed % 5 === 0 ? "L" : seed % 11 === 0 ? "B" : "R"),
       stats,
       isCaptain: p.isCaptain,
-      ovr: p.ovr ?? known,
+      ovr: knownOvr,
     };
-    return enrichPlayer(partial, { fifaRank, tier, variance });
+    return enrichPlayer(partial, { tier, variance, club: p.club });
   });
 }
 

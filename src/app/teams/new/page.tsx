@@ -155,6 +155,7 @@ function draftToPlayer(d: DraftPlayer): Player {
     stats.saves = d.saves;
     stats.goalsConceded = d.goalsConceded;
   }
+  const club = d.club.trim() || "프리에이전트";
   return enrichPlayer(
     {
       id: `custom-${d.key}`,
@@ -163,12 +164,12 @@ function draftToPlayer(d: DraftPlayer): Player {
       number: d.number,
       position: d.position,
       age: d.age,
-      club: d.club.trim() || "프리에이전트",
+      club,
       height: d.position === "GK" ? 190 : 180,
       preferredFoot: "R",
       stats,
     },
-    { fifaRank: 55, tier: "solid" },
+    { tier: "solid", club },
   );
 }
 

@@ -1,3 +1,4 @@
+import { clubBaseOvr } from "@/data/ratings/clubs";
 import type {
   Player,
   PlayerAttributes,
@@ -19,35 +20,10 @@ function rate(part: number, whole: number): number {
   return (part / whole) * 100;
 }
 
-const DEF_POS: Position[] = ["CB", "LB", "RB", "LWB", "RWB"];
-const MID_POS: Position[] = ["CDM", "CM", "CAM", "LM", "RM"];
 const FWD_POS: Position[] = ["LW", "RW", "CF", "ST"];
+const MID_POS: Position[] = ["CDM", "CM", "CAM", "LM", "RM"];
 
 export type PlayerTier = "worldClass" | "star" | "solid" | "fringe" | "youth";
-
-/**
- * Nation ceiling from FIFA ranking — top XIs roughly:
- * #1–5 ≈ 86–88, #20 ≈ 80, #50 ≈ 74, #100 ≈ 66, #150 ≈ 60
- */
-export function nationStrength(fifaRank: number): number {
-  const r = Math.max(1, fifaRank);
-  if (r <= 5) return 1;
-  if (r <= 10) return 0.96;
-  if (r <= 20) return 0.9;
-  if (r <= 35) return 0.84;
-  if (r <= 50) return 0.78;
-  if (r <= 70) return 0.72;
-  if (r <= 90) return 0.66;
-  if (r <= 110) return 0.6;
-  if (r <= 140) return 0.54;
-  return 0.48;
-}
-
-export function nationBaseOvr(fifaRank: number): number {
-  // Typical squad solid-player OVR for that nation (XI avg usually a bit higher with stars)
-  // #1 ≈ 80, #20 ≈ 74, #50 ≈ 68, #100 ≈ 62, #150 ≈ 58
-  return 48 + nationStrength(fifaRank) * 32;
-}
 
 function ageFactor(age: number): number {
   if (age <= 18) return 0.9;
@@ -56,62 +32,60 @@ function ageFactor(age: number): number {
   if (age <= 29) return 1;
   if (age <= 32) return 0.97;
   if (age <= 35) return 0.93;
-  return 0.88;
+  if (age <= 38) return 0.88;
+  return 0.84;
 }
 
 function tierOffset(tier: PlayerTier): number {
   switch (tier) {
     case "worldClass":
-      return 6;
+      return 4;
     case "star":
-      return 3;
+      return 2;
     case "solid":
       return 0;
     case "fringe":
-      return -6;
+      return -4;
     case "youth":
-      return -9;
+      return -7;
   }
 }
 
-/**
- * Soft performance nudge from season stats (±3). Never the main driver.
- */
+/** Tiny performance nudge from season lines (±2). Never dominates skill. */
 function statsNudge(stats: PlayerSeasonStats, position: Position): number {
   const apps = Math.max(stats.appearances, 1);
   const g90 = per90(stats.goals, apps);
   const a90 = per90(stats.assists, apps);
-  const int90 = per90(stats.interceptions, apps);
-  const t90 = per90(stats.tacklesWon, apps);
-  const sot = rate(stats.shotsOnTarget, Math.max(stats.shots, 1));
-
   let score = 0;
   if (position === "GK") {
     const cs = stats.cleanSheets ?? 0;
     const saves = stats.saves ?? 0;
     const gc = Math.max(stats.goalsConceded ?? 1, 1);
-    score = (cs / apps) * 4 + rate(saves, saves + gc) * 0.02 - 2;
+    score = (cs / apps) * 2 + rate(saves, saves + gc) * 0.015 - 1.5;
   } else if (FWD_POS.includes(position)) {
-    score = g90 * 1.2 + a90 * 0.8 + (sot - 35) * 0.03;
+    score = g90 * 0.7 + a90 * 0.4;
   } else if (MID_POS.includes(position)) {
-    score = a90 * 0.9 + g90 * 0.5 + (stats.passAccuracy - 78) * 0.05 + int90 * 0.15;
+    score = a90 * 0.5 + g90 * 0.3 + (stats.passAccuracy - 78) * 0.03;
   } else {
-    score = int90 * 0.25 + t90 * 0.2 + (stats.passAccuracy - 75) * 0.04 - per90(stats.fouls, apps) * 0.1;
+    score =
+      per90(stats.interceptions, apps) * 0.12 +
+      per90(stats.tacklesWon, apps) * 0.1 +
+      (stats.passAccuracy - 75) * 0.03;
   }
-  return Math.max(-3, Math.min(3, score));
+  return Math.max(-2, Math.min(2, score));
 }
 
 export interface QualityContext {
+  /** @deprecated ignored — skill is club + official rating based */
   fifaRank?: number;
   tier?: PlayerTier;
-  /** Extra seeded variance already applied outside, -3..3 */
   variance?: number;
-  /** Hard target when a known-player OVR override is set */
   ovrOverride?: number;
+  club?: string;
 }
 
 /**
- * Target OVR before attribute spread. FIFA-like band, rank-aware.
+ * Skill target from club level + role tier + age. FIFA rank is NOT used.
  */
 export function computeTargetOvr(
   position: Position,
@@ -120,20 +94,17 @@ export function computeTargetOvr(
   ctx: QualityContext = {},
 ): number {
   if (ctx.ovrOverride != null) return clamp(ctx.ovrOverride, 45, 93);
-  const rank = ctx.fifaRank ?? 50;
+
+  const club = ctx.club ?? "";
+  const base = clubBaseOvr(club);
   const tier = ctx.tier ?? "solid";
-  const base = nationBaseOvr(rank);
   const target =
-    base +
-    tierOffset(tier) +
-    (ctx.variance ?? 0) +
-    statsNudge(stats, position);
-  return clamp(target * ageFactor(age), 45, 92);
+    base + tierOffset(tier) + (ctx.variance ?? 0) + statsNudge(stats, position);
+
+  // Bench / fringe at elite clubs still stronger than starters at amateur clubs
+  return clamp(target * ageFactor(age), 48, 90);
 }
 
-/**
- * Build attributes around a target OVR with position-appropriate profiles.
- */
 export function computePlayerAttributes(
   stats: PlayerSeasonStats,
   position: Position,
@@ -142,9 +113,6 @@ export function computePlayerAttributes(
 ): PlayerAttributes {
   const target = computeTargetOvr(position, age, stats, ctx);
   const af = ageFactor(age);
-
-  // Secondary: tiny flavor from rates (already mostly in target)
-  const apps = Math.max(stats.appearances, 1);
   const drib = stats.dribbleSuccessRate;
   const pass = stats.passAccuracy;
 
@@ -221,7 +189,6 @@ export function computePlayerAttributes(
     physical = target - 4;
     defending = target - 16;
   } else {
-    // CF / ST
     shooting = target + 5;
     pace = target + 1;
     dribbling = target + 1;
@@ -230,11 +197,10 @@ export function computePlayerAttributes(
     defending = target - 20;
   }
 
-  // Mild flavor from success rates without blowing the ceiling
-  pace += (drib - 60) * 0.04;
-  dribbling += (drib - 60) * 0.05;
-  passing += (pass - 78) * 0.04;
-  shooting += (rate(stats.shotsOnTarget, Math.max(stats.shots, 1)) - 35) * 0.03;
+  pace += (drib - 60) * 0.03;
+  dribbling += (drib - 60) * 0.04;
+  passing += (pass - 78) * 0.03;
+  shooting += (rate(stats.shotsOnTarget, Math.max(stats.shots, 1)) - 35) * 0.025;
 
   pace *= af;
   shooting *= af;
@@ -244,9 +210,8 @@ export function computePlayerAttributes(
   physical *= af;
   if (goalkeeping != null) goalkeeping *= af;
 
-  // Keep attributes near target so OVR stays honest
-  const softCap = target + 8;
-  const softFloor = target - 28;
+  const softCap = target + 7;
+  const softFloor = target - 26;
 
   const attrs: PlayerAttributes = {
     pace: clamp(pace, softFloor, softCap),
@@ -257,14 +222,11 @@ export function computePlayerAttributes(
     physical: clamp(physical, softFloor, softCap),
   };
   if (goalkeeping != null) {
-    attrs.goalkeeping = clamp(goalkeeping, target - 4, Math.min(94, target + 4));
+    attrs.goalkeeping = clamp(goalkeeping, target - 3, Math.min(93, target + 3));
   }
   return attrs;
 }
 
-/**
- * Position-weighted overall from attributes.
- */
 export function computeOvr(attributes: PlayerAttributes, position: Position): number {
   const a = attributes;
   const gk = a.goalkeeping ?? 40;
@@ -292,7 +254,7 @@ export function computeOvr(attributes: PlayerAttributes, position: Position): nu
     ovr = a.shooting * 0.35 + a.pace * 0.2 + a.dribbling * 0.2 + a.physical * 0.15 + a.passing * 0.1;
   }
 
-  return clamp(ovr, 45, 93);
+  return clamp(ovr, 48, 93);
 }
 
 export type PartialPlayer = Omit<Player, "attributes" | "ovr" | "stats"> & {
@@ -307,6 +269,7 @@ export function enrichPlayer(
 ): Player {
   const mergedCtx: QualityContext = {
     ...ctx,
+    club: ctx.club ?? partial.club,
     ovrOverride: partial.ovr ?? ctx.ovrOverride,
   };
   const computed = computePlayerAttributes(
@@ -337,9 +300,7 @@ export function enrichPlayer(
     partial.stats,
     mergedCtx,
   );
-  const ovr =
-    partial.ovr ??
-    clamp(fromAttrs * 0.55 + target * 0.45, 45, 93);
+  const ovr = partial.ovr ?? clamp(fromAttrs * 0.5 + target * 0.5, 48, 93);
 
   const { attributes: _a, ovr: _o, ...rest } = partial;
   return {
