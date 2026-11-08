@@ -6,6 +6,7 @@ import type { MatchResult } from "@/types/football";
 import { Scoreboard } from "@/components/match/Scoreboard";
 import { EventFeed } from "@/components/match/EventFeed";
 import { LineupBoard } from "@/components/match/LineupBoard";
+import { MatchPitch } from "@/components/match/MatchPitch";
 import { StatsTable } from "@/components/match/StatsTable";
 import { Button } from "@/components/ui/button";
 import { saveMatch } from "@/lib/storage";
@@ -37,7 +38,8 @@ export function LiveMatch({
 
   useEffect(() => {
     if (!playing || done) return;
-    const t = setTimeout(() => setIdx((v) => v + 1), 450 / speed);
+    // denser logs → slightly faster default pacing
+    const t = setTimeout(() => setIdx((v) => v + 1), 380 / speed);
     return () => clearTimeout(t);
   }, [playing, done, idx, speed]);
 
@@ -49,7 +51,7 @@ export function LiveMatch({
   }, [done, match, saved]);
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-3 py-4 sm:px-4">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-3 py-4 sm:px-4">
       <div className="flex flex-wrap items-center gap-2">
         <Button
           size="sm"
@@ -64,7 +66,7 @@ export function LiveMatch({
         </Button>
         <div className="flex items-center gap-1 text-xs text-zinc-400">
           배속:
-          {[1, 2, 4].map((s) => (
+          {[1, 2, 4, 8].map((s) => (
             <button
               key={s}
               type="button"
@@ -86,6 +88,7 @@ export function LiveMatch({
       </div>
 
       <Scoreboard match={liveMatch} />
+      <MatchPitch match={match} eventIndex={idx} />
       <EventFeed match={match} visibleCount={idx} />
 
       {done && (

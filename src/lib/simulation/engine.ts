@@ -334,18 +334,59 @@ export function simulateMatch(
     }
 
     if (!rng.chance(Math.min(0.55, Math.max(0.08, eventChance)))) {
-      // quiet minute — occasional commentary
-      if (rng.chance(0.08)) {
+      // Quiet minute — still log possession / build-up so the full timeline is complete
+      const carrier = pickOnPitch(
+        attackSide.lines,
+        attackSide.team,
+        ["CM", "CDM", "CB", "LB", "RB", "CAM"],
+        rng,
+      );
+      const quietRoll = rng.next();
+      if (quietRoll < 0.45) {
+        push({
+          minute,
+          period,
+          type: "possession",
+          teamId: attackSide.team.id,
+          playerId: carrier?.playerId,
+          playerName: carrier?.name,
+          text: rng.pick([
+            `${minute}' ${attackSide.team.name}${carrier ? ` ${carrier.name}` : ""}이(가) 후방에서 볼을 소유합니다.`,
+            `${minute}' ${attackSide.team.name}이(가) 중원에서 차분히 볼을 돌립니다.`,
+            `${minute}' ${defendSide.team.name}의 수비 라인이 높게 올라와 압박합니다.`,
+          ]),
+        });
+      } else if (quietRoll < 0.75 && passer) {
+        push({
+          minute,
+          period,
+          type: "pass",
+          teamId: attackSide.team.id,
+          playerId: passer.playerId,
+          playerName: passer.name,
+          text: `${minute}' ${passer.name}의 짧은 패스로 ${attackSide.team.name}이(가) 빌드업합니다.`,
+        });
+      } else if (quietRoll < 0.9) {
+        const clearer = pickOnPitch(defendSide.lines, defendSide.team, ["CB", "LB", "RB", "CDM"], rng);
+        push({
+          minute,
+          period,
+          type: "clearance",
+          teamId: defendSide.team.id,
+          playerId: clearer?.playerId,
+          playerName: clearer?.name,
+          text: `${minute}' ${clearer?.name ?? defendSide.team.name}이(가) 위험을 걷어냅니다.`,
+        });
+      } else {
         push({
           minute,
           period,
           type: "commentary",
           teamId: attackSide.team.id,
           text: rng.pick([
-            `${minute}' ${attackSide.team.name}이(가) 중원에서 차분히 볼을 돌립니다.`,
-            `${minute}' ${defendSide.team.name}의 수비 라인이 높게 올라와 있습니다.`,
             `${minute}' 양 팀의 압박 강도가 높아지며 템포가 올라갑니다.`,
             `${minute}' ${attackSide.team.name} 측면으로 볼을 전개합니다.`,
+            `${minute}' 관중석의 함성이 커집니다.`,
           ]),
         });
       }

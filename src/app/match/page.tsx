@@ -7,6 +7,7 @@ import { LiveMatch } from "@/components/sim/LiveMatch";
 import { Scoreboard } from "@/components/match/Scoreboard";
 import { EventFeed } from "@/components/match/EventFeed";
 import { LineupBoard } from "@/components/match/LineupBoard";
+import { MatchPitch } from "@/components/match/MatchPitch";
 import { StatsTable } from "@/components/match/StatsTable";
 import { Button } from "@/components/ui/button";
 import {
@@ -103,7 +104,7 @@ function MatchPageInner() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-3 py-4 sm:px-4">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-3 py-4 sm:px-4">
       <div className="flex flex-wrap items-center gap-2">
         <Link href="/history/" className="text-sm text-zinc-400 hover:text-white">
           ← 기록
@@ -125,8 +126,9 @@ function MatchPageInner() {
       </div>
 
       <Scoreboard match={match} />
-      <EventFeed match={match} />
+      <MatchPitch match={match} eventIndex={match.events.length} />
       <LineupBoard match={match} />
+      <EventFeed match={match} />
       <StatsTable match={match} />
     </div>
   );

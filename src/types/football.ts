@@ -256,7 +256,13 @@ export type MatchEventType =
   | "injury"
   | "commentary"
   | "dribble"
-  | "interception";
+  | "interception"
+  | "pass"
+  | "possession"
+  | "tackle"
+  | "clearance"
+  | "throw_in"
+  | "free_kick";
 
 export interface EventGraphic {
   goal?: {
