@@ -1,4 +1,4 @@
-:HL["/diari-football/_next/static/chunks/152ul_og8x51-.css","style"]
+:HL["/diari-football/_next/static/chunks/1lsl2uc72xc_-.css","style"]
 2:[["children",{"s":"__PAGE__","h":160}]]
 1:[["children",{"s":"/_not-found","h":96,"c":"$Q2"}]]
-0:{"b":"TRoQQ1VVm9HrJhheGzDd_","t":{"t":{"s":"","h":80,"c":"$Q1"}}}
+0:{"b":"J_kgh5iCMCcXfI4kHgVPW","t":{"t":{"s":"","h":80,"c":"$Q1"}}}
