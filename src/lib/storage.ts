@@ -101,6 +101,41 @@ export function getMatchById(id: string): MatchResult | undefined {
   return getSavedMatches().find((m) => m.id === id);
 }
 
+export function deleteMatch(id: string) {
+  write(
+    MATCHES_KEY,
+    getSavedMatches().filter((m) => m.id !== id),
+  );
+  // Drop series that only referenced this match, or strip the match from series
+  const series = getSavedSeries()
+    .map((s) => ({
+      ...s,
+      matches: s.matches.filter((m) => m.id !== id),
+    }))
+    .filter((s) => s.matches.length > 0)
+    .map((s) => ({
+      ...s,
+      homeAggregate: s.matches.reduce((n, m) => n + m.homeScore, 0),
+      awayAggregate: s.matches.reduce((n, m) => n + m.awayScore, 0),
+    }));
+  write(SERIES_KEY, series);
+}
+
+export function deleteSeries(id: string) {
+  const target = getSavedSeries().find((s) => s.id === id);
+  write(
+    SERIES_KEY,
+    getSavedSeries().filter((s) => s.id !== id),
+  );
+  if (target) {
+    const remove = new Set(target.matches.map((m) => m.id));
+    write(
+      MATCHES_KEY,
+      getSavedMatches().filter((m) => !remove.has(m.id)),
+    );
+  }
+}
+
 export function getSavedSeries(): SeriesResult[] {
   return read<SeriesResult[]>(SERIES_KEY, []);
 }

@@ -9,7 +9,11 @@ import { LineupBoard } from "@/components/match/LineupBoard";
 import { MatchPitch } from "@/components/match/MatchPitch";
 import { StatsTable } from "@/components/match/StatsTable";
 import { Button } from "@/components/ui/button";
+import { isMajorEvent } from "@/lib/match-events";
 import { saveMatch } from "@/lib/storage";
+
+const MAJOR_MS = 1400;
+const FILLER_MS = MAJOR_MS / 40; // 40x relative to major events
 
 export function LiveMatch({
   match,
@@ -38,10 +42,12 @@ export function LiveMatch({
 
   useEffect(() => {
     if (!playing || done) return;
-    // denser logs → slightly faster default pacing
-    const t = setTimeout(() => setIdx((v) => v + 1), 380 / speed);
+    const current = match.events[idx - 1];
+    const major = current ? isMajorEvent(current.type) : false;
+    const delay = (major ? MAJOR_MS : FILLER_MS) / speed;
+    const t = setTimeout(() => setIdx((v) => v + 1), delay);
     return () => clearTimeout(t);
-  }, [playing, done, idx, speed]);
+  }, [playing, done, idx, speed, match.events]);
 
   useEffect(() => {
     if (done && !saved) {
@@ -66,7 +72,7 @@ export function LiveMatch({
         </Button>
         <div className="flex items-center gap-1 text-xs text-zinc-400">
           배속:
-          {[1, 2, 4, 8].map((s) => (
+          {[1, 2, 4].map((s) => (
             <button
               key={s}
               type="button"
@@ -76,6 +82,7 @@ export function LiveMatch({
               {s}x
             </button>
           ))}
+          <span className="ml-1 text-[10px] text-zinc-500">일반 로그는 40배속</span>
         </div>
         {done && (
           <Link
@@ -89,7 +96,7 @@ export function LiveMatch({
 
       <Scoreboard match={liveMatch} />
       <MatchPitch match={match} eventIndex={idx} />
-      <EventFeed match={match} visibleCount={idx} />
+      <EventFeed match={match} visibleCount={idx} defaultMode="events" />
 
       {done && (
         <>

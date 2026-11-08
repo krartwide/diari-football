@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { LiveMatch } from "@/components/sim/LiveMatch";
 import { Scoreboard } from "@/components/match/Scoreboard";
 import { EventFeed } from "@/components/match/EventFeed";
@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import {
   buildShareUrl,
   decodeShareCode,
+  deleteMatch,
   getMatchById,
   matchShareCode,
   saveMatch,
@@ -38,6 +39,7 @@ export default function MatchPage() {
 }
 
 function MatchPageInner() {
+  const router = useRouter();
   const search = useSearchParams();
   const id = search.get("id") ?? "";
   const live = search.get("live") === "1";
@@ -123,6 +125,18 @@ function MatchPageInner() {
         >
           라이브 다시보기
         </Link>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="text-red-400 hover:bg-red-950/40 hover:text-red-300"
+          onClick={() => {
+            if (!window.confirm("이 경기 기록을 삭제할까요?")) return;
+            deleteMatch(match.id);
+            router.push("/history/");
+          }}
+        >
+          기록 삭제
+        </Button>
       </div>
 
       <Scoreboard match={match} />

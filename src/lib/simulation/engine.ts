@@ -137,26 +137,41 @@ function pickOnPitch(
 }
 
 function goalGraphic(rng: Rng, isPenalty: boolean): EventGraphic {
+  const bodyPart = isPenalty
+    ? rng.pick(["right_foot", "left_foot"])
+    : rng.pick(["right_foot", "left_foot", "head", "other"]);
+  const isHeader = bodyPart === "head";
+  // Pitch coords: x = attack direction (100 = goal line), y = width
   const shotFrom = isPenalty
     ? { x: 88.5, y: 50 }
-    : { x: 70 + rng.next() * 22, y: 15 + rng.next() * 70 };
+    : isHeader
+      ? { x: 88 + rng.next() * 6, y: 28 + rng.next() * 44 }
+      : { x: 72 + rng.next() * 18, y: 18 + rng.next() * 64 };
+  // goalEntry: x = across goal mouth (0–100), y = height off ground (0–100)
   const goalEntry = {
-    x: 20 + rng.next() * 60,
-    y: 15 + rng.next() * 70,
+    x: 18 + rng.next() * 64,
+    y: isHeader ? 55 + rng.next() * 35 : 20 + rng.next() * 55,
   };
-  const mid = {
-    x: (shotFrom.x + 100) / 2,
-    y: (shotFrom.y + goalEntry.x) / 2 + (rng.next() - 0.5) * 20,
+  const mid1 = {
+    x: shotFrom.x + (100 - shotFrom.x) * 0.45,
+    y: shotFrom.y + (goalEntry.x - shotFrom.y) * 0.35 + (rng.next() - 0.5) * 8,
   };
+  const mid2 = {
+    x: shotFrom.x + (100 - shotFrom.x) * 0.78,
+    y: shotFrom.y + (goalEntry.x - shotFrom.y) * 0.75,
+  };
+  const goalLine = { x: 100, y: goalEntry.x };
   return {
     goal: {
       shotFrom,
-      trajectory: [shotFrom, mid, { x: 100, y: goalEntry.x }],
+      trajectory: [shotFrom, mid1, mid2, goalLine],
       goalEntry,
-      bodyPart: rng.pick(["right_foot", "left_foot", "head", "other"]),
+      bodyPart,
       shotType: isPenalty
         ? "penalty"
-        : rng.pick(["ground", "curled", "driven", "chip", "volley"]),
+        : isHeader
+          ? "volley"
+          : rng.pick(["ground", "curled", "driven", "chip", "volley"]),
     },
   };
 }

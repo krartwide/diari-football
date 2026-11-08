@@ -53,6 +53,7 @@ export function EventVisualizer({
 function VisualizerBody({ event }: { event: MatchEvent }) {
   if (event.graphic?.goal) {
     const g = event.graphic.goal;
+    const end = g.trajectory[g.trajectory.length - 1] ?? { x: 100, y: g.goalEntry.x };
     return (
       <div className="space-y-3">
         <p className="text-sm text-zinc-300">{event.text}</p>
@@ -62,14 +63,17 @@ function VisualizerBody({ event }: { event: MatchEvent }) {
               d={`M ${g.trajectory.map((p) => `${p.x} ${p.y}`).join(" L ")}`}
               fill="none"
               stroke="#fbbf24"
-              strokeWidth="1.2"
-              strokeDasharray="2 1.5"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             />
-            <circle cx={g.shotFrom.x} cy={g.shotFrom.y} r="2.2" fill="#34d399" />
-            <circle cx="100" cy={g.goalEntry.x} r="1.8" fill="#f87171" />
+            <circle cx={g.shotFrom.x} cy={g.shotFrom.y} r="2.4" fill="#34d399" />
+            {/* Ball lands on the goal line */}
+            <circle cx={end.x} cy={end.y} r="2.2" fill="#f8fafc" stroke="#f87171" strokeWidth="0.8" />
+            <rect x="97.5" y="28" width="2.2" height="44" fill="none" stroke="#e2e8f0" strokeWidth="0.7" />
           </svg>
           <span className="absolute bottom-2 left-2 text-[10px] text-white/70">
-            킥 위치
+            {g.bodyPart === "head" ? "헤딩 위치" : "킥 위치"}
           </span>
           <span className="absolute right-2 top-2 text-[10px] text-white/70">골문</span>
         </Pitch>
@@ -87,6 +91,24 @@ function VisualizerBody({ event }: { event: MatchEvent }) {
                   : "기타"}
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // Fallback for major events without dedicated graphics — still show pitch diagram
+  if (
+    ["goal", "penalty_goal", "shot", "shot_on_target", "save", "dribble", "substitution"].includes(
+      event.type,
+    )
+  ) {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-zinc-300">{event.text}</p>
+        <Pitch>
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-black">
+            {event.playerName ?? "플레이"}
+          </div>
+        </Pitch>
       </div>
     );
   }

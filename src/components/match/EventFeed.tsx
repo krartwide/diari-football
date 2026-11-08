@@ -4,46 +4,26 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { MatchEvent, MatchResult } from "@/types/football";
 import { EventVisualizer } from "@/components/event/EventVisualizer";
 import { Button } from "@/components/ui/button";
+import { isMajorEvent } from "@/lib/match-events";
 import { cn } from "@/lib/utils";
-
-const HIGHLIGHT = new Set([
-  "goal",
-  "penalty_goal",
-  "own_goal",
-  "foul",
-  "yellow_card",
-  "red_card",
-  "second_yellow",
-  "offside",
-  "shot",
-  "shot_on_target",
-  "shot_blocked",
-  "save",
-  "injury",
-  "penalty_miss",
-  "substitution",
-  "corner",
-  "dribble",
-  "interception",
-  "free_kick",
-  "tackle",
-]);
 
 export function EventFeed({
   match,
   visibleCount,
+  defaultMode = "all",
 }: {
   match: MatchResult;
   visibleCount?: number;
+  defaultMode?: "all" | "events";
 }) {
   const [selected, setSelected] = useState<MatchEvent | null>(null);
-  const [mode, setMode] = useState<"all" | "events">("all");
+  const [mode, setMode] = useState<"all" | "events">(defaultMode);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const events = useMemo(() => {
     const list =
       visibleCount === undefined ? match.events : match.events.slice(0, visibleCount);
-    if (mode === "events") return list.filter((e) => HIGHLIGHT.has(e.type));
+    if (mode === "events") return list.filter((e) => isMajorEvent(e.type));
     return list;
   }, [match.events, visibleCount, mode]);
 
@@ -89,14 +69,13 @@ export function EventFeed({
 
       <div className="max-h-[28rem] space-y-1 overflow-y-auto rounded-lg bg-[#1a1d22] p-3">
         {events.map((e) => {
-          const clickable = HIGHLIGHT.has(e.type) && !!e.graphic;
-          const isMajor = HIGHLIGHT.has(e.type);
+          const major = isMajorEvent(e.type);
           return (
             <div
               key={e.id}
               className={cn(
                 "flex flex-col gap-1 border-b border-white/5 py-2 last:border-0 sm:flex-row sm:items-start sm:justify-between",
-                !isMajor && "opacity-80",
+                !major && "opacity-75",
               )}
             >
               <div className="min-w-0 flex-1">
@@ -108,7 +87,7 @@ export function EventFeed({
                   <span
                     className={cn(
                       "rounded px-1.5 py-0.5 uppercase tracking-wide",
-                      isMajor ? "bg-emerald-950/60 text-emerald-300" : "bg-white/5",
+                      major ? "bg-emerald-950/60 text-emerald-300" : "bg-white/5",
                     )}
                   >
                     {labelType(e.type)}
@@ -116,7 +95,7 @@ export function EventFeed({
                 </div>
                 <p className="text-sm leading-relaxed text-zinc-200">{e.text}</p>
               </div>
-              {clickable && (
+              {major && (
                 <Button
                   size="sm"
                   variant="outline"
