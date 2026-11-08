@@ -155,18 +155,21 @@ function draftToPlayer(d: DraftPlayer): Player {
     stats.saves = d.saves;
     stats.goalsConceded = d.goalsConceded;
   }
-  return enrichPlayer({
-    id: `custom-${d.key}`,
-    name: d.name.trim() || "무명",
-    nameEn: d.name.trim() || "Unknown",
-    number: d.number,
-    position: d.position,
-    age: d.age,
-    club: d.club.trim() || "프리에이전트",
-    height: d.position === "GK" ? 190 : 180,
-    preferredFoot: "R",
-    stats,
-  });
+  return enrichPlayer(
+    {
+      id: `custom-${d.key}`,
+      name: d.name.trim() || "무명",
+      nameEn: d.name.trim() || "Unknown",
+      number: d.number,
+      position: d.position,
+      age: d.age,
+      club: d.club.trim() || "프리에이전트",
+      height: d.position === "GK" ? 190 : 180,
+      preferredFoot: "R",
+      stats,
+    },
+    { fifaRank: 55, tier: "solid" },
+  );
 }
 
 function playerToDraft(p: Player): DraftPlayer {
