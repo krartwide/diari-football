@@ -34,31 +34,30 @@ function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t;
 }
 
-function lerpPt(a: Pt, b: Pt, t: number): Pt {
-  return { x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t) };
-}
-
-function dist(a: Pt, b: Pt) {
-  return Math.hypot(a.x - b.x, a.y - b.y);
-}
-
 function hashId(id: string): number {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
   return Math.abs(h);
 }
 
-function formationBase(team: Team, side: "home" | "away", role: string, indexInRole: number, roleCount: number): Pt {
+function formationBase(
+  team: Team,
+  side: "home" | "away",
+  role: string,
+  indexInRole: number,
+  roleCount: number,
+): Pt {
   const formation = getFormation(team.tactics.formation) ?? getFormation("4-3-3")!;
   const slots = formation.slots.filter((s) => s.position === role);
-  const slot = slots[Math.min(indexInRole, Math.max(0, slots.length - 1))] ?? formation.slots[0]!;
-  // If multiple same role without enough slots, spread by index
-  const laneJitter = roleCount > 1 && slots.length <= 1 ? (indexInRole + 1) / (roleCount + 1) : slot.x;
+  const slot =
+    slots[Math.min(indexInRole, Math.max(0, slots.length - 1))] ?? formation.slots[0]!;
+  const laneJitter =
+    roleCount > 1 && slots.length <= 1 ? (indexInRole + 1) / (roleCount + 1) : slot.x;
   const depth = slot.y;
   if (side === "home") {
-    return { x: 7 + depth * 38, y: 10 + laneJitter * 80 };
+    return { x: 8 + depth * 36, y: 12 + laneJitter * 76 };
   }
-  return { x: 93 - depth * 38, y: 10 + (1 - laneJitter) * 80 };
+  return { x: 92 - depth * 36, y: 12 + (1 - laneJitter) * 76 };
 }
 
 function assignStones(team: Team, lines: PlayerMatchLine[], side: "home" | "away"): Stone[] {
@@ -70,7 +69,6 @@ function assignStones(team: Team, lines: PlayerMatchLine[], side: "home" | "away
   return on.map((l) => {
     const idx = roleIndex.get(l.position) ?? 0;
     roleIndex.set(l.position, idx + 1);
-    const base = formationBase(team, side, l.position, idx, roleCounts.get(l.position) ?? 1);
     return {
       id: l.playerId,
       number: l.number,
@@ -78,7 +76,7 @@ function assignStones(team: Team, lines: PlayerMatchLine[], side: "home" | "away
       team: side,
       color: team.colors.primary,
       accent: team.colors.secondary,
-      base,
+      base: formationBase(team, side, l.position, idx, roleCounts.get(l.position) ?? 1),
       role: l.position,
     };
   });
@@ -131,91 +129,120 @@ function lineupAt(
   return copy;
 }
 
-/** Target positions for each stone given the current event + ball. */
-function computeTargets(
+/**
+ * Big, readable movement targets — percentages of the pitch so shifts are obvious.
+ */
+function targetsForEvent(
   stones: Stone[],
   event: MatchEvent | undefined,
   homeId: string,
   ball: Pt,
-  t: number,
+  tick: number,
 ): Map<string, Pt> {
-  const out = new Map<string, Pt>();
-  const isHomeAttack = !event || event.teamId === homeId;
+  const map = new Map<string, Pt>();
+  const isHomeBall = !event || event.teamId === homeId;
   const actorId = event?.playerId;
   const assistId = event?.assistId;
+  const major = event ? isMajorEvent(event.type) : false;
+
+  // Ball focus zone pulls the whole pitch
+  const focusX = ball.x;
+  const focusY = ball.y;
 
   for (const s of stones) {
-    const attacking = (s.team === "home") === isHomeAttack;
-    const h = hashId(s.id);
-    const breathX = Math.sin(t * 0.0011 + h) * 0.9;
-    const breathY = Math.cos(t * 0.0009 + h * 0.3) * 0.7;
+    const h = hashId(s.id + String(event?.id ?? ""));
+    const phase = tick * 0.002 + h * 0.01;
+    const roamX = Math.sin(phase) * (major ? 2.5 : 3.5);
+    const roamY = Math.cos(phase * 1.3) * (major ? 2.2 : 3.2);
+
+    const attacking = (s.team === "home") === isHomeBall;
+    const dir = s.team === "home" ? 1 : -1;
 
     let x = s.base.x;
     let y = s.base.y;
 
-    // Team shape shift with possession
-    if (s.role !== "GK") {
-      x += attacking ? (s.team === "home" ? 6 : -6) : s.team === "home" ? -3 : 3;
-    }
-
-    // GK shadows ball on their line
+    // 1) Whole team shifts with possession — large push
     if (s.role === "GK") {
-      y = lerp(s.base.y, clamp(ball.y, 28, 72), 0.45);
-      x = s.team === "home" ? 5 : 95;
+      x = s.team === "home" ? 4.5 : 95.5;
+      y = lerp(s.base.y, clamp(focusY, 22, 78), 0.65);
+    } else if (["CB", "LB", "RB", "LWB", "RWB"].includes(s.role)) {
+      x = s.base.x + dir * (attacking ? 10 : -6);
+      y = lerp(s.base.y, clamp(focusY + ((h % 5) - 2) * 5, 10, 90), attacking ? 0.25 : 0.45);
+    } else if (["CDM", "CM", "CAM"].includes(s.role)) {
+      x = s.base.x + dir * (attacking ? 14 : -5);
+      y = lerp(s.base.y, clamp(focusY + ((h % 7) - 3) * 4, 8, 92), 0.4);
+    } else if (["LM", "RM", "LW", "RW"].includes(s.role)) {
+      x = s.base.x + dir * (attacking ? 16 : -4);
+      y = lerp(s.base.y, clamp(focusY + (s.role.startsWith("L") || s.role === "LW" ? -12 : 12), 8, 92), 0.35);
+    } else {
+      // ST / CF
+      x = s.base.x + dir * (attacking ? 18 : -3);
+      y = lerp(s.base.y, clamp(focusY + ((h % 3) - 1) * 8, 18, 82), 0.35);
     }
 
-    // Ball carrier / actor runs with/to the ball
+    // 2) Compress toward the ball (everyone except far GK)
+    if (s.role !== "GK") {
+      const pull = attacking ? 0.28 : 0.42;
+      x = lerp(x, focusX + dir * -6, pull);
+      y = lerp(y, focusY, pull * 0.7);
+    }
+
+    // 3) Event actor — sprint to / with the ball
     if (actorId && s.id === actorId) {
-      if (event && ["dribble", "possession", "pass"].includes(event.type)) {
-        x = lerp(s.base.x, ball.x + (s.team === "home" ? -2 : 2), 0.85);
-        y = lerp(s.base.y, ball.y, 0.85);
-      } else if (event && ["shot", "shot_on_target", "goal", "penalty_goal", "penalty_miss"].includes(event.type)) {
-        const boxX = s.team === "home" ? 82 : 18;
-        x = lerp(s.base.x, boxX, 0.7);
-        y = lerp(s.base.y, clamp(ball.y, 30, 70), 0.6);
+      if (event && ["dribble", "possession", "pass", "tackle", "interception"].includes(event.type)) {
+        x = focusX + dir * -3;
+        y = focusY;
+      } else if (
+        event &&
+        ["shot", "shot_on_target", "goal", "penalty_goal", "penalty_miss", "shot_blocked"].includes(
+          event.type,
+        )
+      ) {
+        x = s.team === "home" ? 84 : 16;
+        y = clamp(focusY, 28, 72);
+      } else if (event && ["corner", "free_kick"].includes(event.type)) {
+        x = focusX;
+        y = focusY;
       } else {
-        x = lerp(s.base.x, ball.x, 0.5);
-        y = lerp(s.base.y, ball.y, 0.5);
+        x = lerp(s.base.x, focusX, 0.75);
+        y = lerp(s.base.y, focusY, 0.75);
       }
     }
 
-    // Assister supports
+    // 4) Assister / support runner
     if (assistId && s.id === assistId) {
-      x = lerp(s.base.x, ball.x + (s.team === "home" ? -8 : 8), 0.55);
-      y = lerp(s.base.y, ball.y + ((h % 2) * 2 - 1) * 8, 0.5);
+      x = focusX + dir * -10;
+      y = clamp(focusY + ((h % 2) * 2 - 1) * 14, 12, 88);
     }
 
-    // Nearby teammates offer passing lanes / press
-    const dBall = dist(s.base, ball);
-    if (s.role !== "GK" && s.id !== actorId) {
-      if (attacking && dBall < 35) {
-        // support run toward ball-side channel
-        const sideOff = ((h % 5) - 2) * 3.5;
-        x = lerp(x, ball.x + (s.team === "home" ? -5 : 5), 0.25);
-        y = lerp(y, clamp(ball.y + sideOff, 8, 92), 0.3);
-      } else if (!attacking && dBall < 40) {
-        // defensive press / mark
-        x = lerp(x, ball.x + (s.team === "home" ? -4 : 4), 0.35);
-        y = lerp(y, clamp(ball.y + ((h % 3) - 1) * 4, 10, 90), 0.4);
+    // 5) Closest defenders mark hard
+    if (!attacking && s.role !== "GK" && s.id !== actorId) {
+      const dx = s.base.x - focusX;
+      const dy = s.base.y - focusY;
+      const d = Math.hypot(dx, dy);
+      if (d < 45) {
+        x = lerp(x, focusX + dir * -5, 0.55);
+        y = lerp(y, focusY + ((h % 3) - 1) * 6, 0.55);
       }
     }
 
-    // Forwards make runs on attack events
+    // 6) Forwards make diagonal runs on attack
     if (
       attacking &&
       ["ST", "CF", "LW", "RW"].includes(s.role) &&
       event &&
-      ["pass", "dribble", "shot", "goal", "penalty_goal", "corner"].includes(event.type)
+      ["pass", "dribble", "shot", "goal", "penalty_goal", "corner", "cross"].includes(event.type)
     ) {
-      x += s.team === "home" ? 4 : -4;
+      x += dir * 8;
+      y += ((h % 2) * 2 - 1) * 6;
     }
 
-    out.set(s.id, {
-      x: clamp(x + breathX, 3, 97),
-      y: clamp(y + breathY, 5, 95),
+    map.set(s.id, {
+      x: clamp(x + roamX, 2.5, 97.5),
+      y: clamp(y + roamY, 5, 95),
     });
   }
-  return out;
+  return map;
 }
 
 function ballPlan(
@@ -223,166 +250,138 @@ function ballPlan(
   homeId: string,
   stones: Stone[],
   prev: Pt,
-): { keyframes: Array<BallState & { wait: number }> } {
+): Array<BallState & { wait: number }> {
   const center = { x: 50, y: 50 };
-  if (!e) {
-    return { keyframes: [{ pos: center, airborne: false, spinning: false, height: 0, wait: 0 }] };
-  }
+  if (!e) return [{ pos: center, airborne: false, spinning: false, height: 0, wait: 0 }];
+
   const isHome = e.teamId === homeId;
   const actor = stones.find((s) => s.id === e.playerId);
   const goalX = isHome ? 98.5 : 1.5;
   const boxX = isHome ? 86 : 14;
-
-  const atActor = actor?.base ?? { x: isHome ? 55 : 45, y: 50 };
+  const at = actor?.base ?? { x: isHome ? 55 : 45, y: 50 };
 
   switch (e.type) {
     case "kickoff":
     case "second_half":
-      return {
-        keyframes: [
-          { pos: center, airborne: false, spinning: false, height: 0, wait: 0 },
-          { pos: { x: center.x + (isHome ? 4 : -4), y: center.y }, airborne: false, spinning: true, height: 0, wait: 400 },
-        ],
-      };
+      return [
+        { pos: center, airborne: false, spinning: false, height: 0, wait: 0 },
+        {
+          pos: { x: center.x + (isHome ? 6 : -6), y: center.y + 2 },
+          airborne: false,
+          spinning: true,
+          height: 0,
+          wait: 500,
+        },
+      ];
     case "goal":
     case "penalty_goal":
     case "own_goal": {
       const g = e.graphic?.goal;
-      const start = actor
-        ? { x: lerp(actor.base.x, boxX, 0.55), y: actor.base.y }
-        : g
-          ? { x: isHome ? g.shotFrom.x * 0.9 : 100 - g.shotFrom.x * 0.9, y: g.shotFrom.y }
-          : { x: boxX, y: 50 };
-      const entryY = g ? clamp(g.goalEntry.x, 32, 68) : 50;
-      const isHeader = g?.bodyPart === "head";
-      return {
-        keyframes: [
-          { pos: start, airborne: isHeader, spinning: true, height: isHeader ? 0.55 : 0.15, wait: 0 },
-          {
-            pos: { x: lerp(start.x, goalX, 0.55), y: lerp(start.y, entryY, 0.5) },
-            airborne: true,
-            spinning: true,
-            height: isHeader ? 0.85 : 0.65,
-            wait: 380,
-          },
-          {
-            pos: { x: goalX, y: entryY },
-            airborne: true,
-            spinning: true,
-            height: isHeader ? 0.7 : 0.4,
-            wait: 520,
-          },
-          {
-            pos: { x: goalX, y: entryY },
-            airborne: false,
-            spinning: false,
-            height: 0.05,
-            wait: 350,
-          },
-        ],
+      const start = {
+        x: actor ? lerp(actor.base.x, boxX, 0.6) : boxX,
+        y: actor?.base.y ?? 50,
       };
+      const entryY = g ? clamp(g.goalEntry.x, 34, 66) : 50;
+      const header = g?.bodyPart === "head";
+      return [
+        { pos: start, airborne: header, spinning: true, height: header ? 0.55 : 0.2, wait: 0 },
+        {
+          pos: { x: lerp(start.x, goalX, 0.55), y: lerp(start.y, entryY, 0.5) },
+          airborne: true,
+          spinning: true,
+          height: header ? 0.9 : 0.7,
+          wait: 420,
+        },
+        { pos: { x: goalX, y: entryY }, airborne: true, spinning: true, height: 0.55, wait: 520 },
+        { pos: { x: goalX, y: entryY }, airborne: false, spinning: false, height: 0.05, wait: 280 },
+      ];
     }
     case "shot":
     case "shot_on_target":
-    case "penalty_miss": {
-      const start = actor ? { x: lerp(actor.base.x, boxX, 0.4), y: actor.base.y } : prev;
-      return {
-        keyframes: [
-          { pos: start, airborne: false, spinning: true, height: 0.1, wait: 0 },
-          {
-            pos: { x: lerp(start.x, goalX, 0.7), y: lerp(start.y, 50, 0.4) },
-            airborne: true,
-            spinning: true,
-            height: 0.7,
-            wait: 450,
-          },
-        ],
-      };
-    }
+    case "penalty_miss":
+    case "shot_blocked":
+      return [
+        {
+          pos: { x: lerp(at.x, boxX, 0.45), y: at.y },
+          airborne: false,
+          spinning: true,
+          height: 0.15,
+          wait: 0,
+        },
+        {
+          pos: { x: lerp(boxX, goalX, 0.55), y: lerp(at.y, 50, 0.4) },
+          airborne: true,
+          spinning: true,
+          height: 0.75,
+          wait: 480,
+        },
+      ];
     case "save":
-      return {
-        keyframes: [
-          {
-            pos: { x: isHome ? 93 : 7, y: 48 },
-            airborne: true,
-            spinning: false,
-            height: 0.55,
-            wait: 0,
-          },
-          {
-            pos: { x: isHome ? 88 : 12, y: 40 },
-            airborne: false,
-            spinning: false,
-            height: 0,
-            wait: 400,
-          },
-        ],
-      };
+      return [
+        { pos: { x: isHome ? 93 : 7, y: 48 }, airborne: true, spinning: false, height: 0.6, wait: 0 },
+        { pos: { x: isHome ? 86 : 14, y: 38 }, airborne: false, spinning: false, height: 0, wait: 400 },
+      ];
     case "dribble":
-      return {
-        keyframes: [
-          {
-            pos: { x: atActor.x + (isHome ? 5 : -5), y: atActor.y + 2 },
-            airborne: false,
-            spinning: true,
-            height: 0,
-            wait: 0,
-          },
-          {
-            pos: { x: atActor.x + (isHome ? 10 : -10), y: atActor.y - 1 },
-            airborne: false,
-            spinning: true,
-            height: 0,
-            wait: 500,
-          },
-        ],
-      };
+      return [
+        {
+          pos: { x: at.x + (isHome ? 4 : -4), y: at.y },
+          airborne: false,
+          spinning: true,
+          height: 0,
+          wait: 0,
+        },
+        {
+          pos: { x: at.x + (isHome ? 12 : -12), y: at.y + ((hashId(e.id) % 5) - 2) * 3 },
+          airborne: false,
+          spinning: true,
+          height: 0,
+          wait: 550,
+        },
+      ];
     case "pass":
     case "possession":
-      return {
-        keyframes: [
-          {
-            pos: { x: atActor.x + (isHome ? 2 : -2), y: atActor.y },
-            airborne: false,
-            spinning: false,
-            height: 0,
-            wait: 0,
+      return [
+        {
+          pos: { x: at.x + (isHome ? 3 : -3), y: at.y },
+          airborne: false,
+          spinning: true,
+          height: 0,
+          wait: 0,
+        },
+        {
+          pos: {
+            x: at.x + (isHome ? 14 : -14),
+            y: clamp(at.y + ((hashId(e.id) % 7) - 3) * 5, 15, 85),
           },
-        ],
-      };
+          airborne: false,
+          spinning: false,
+          height: 0,
+          wait: 400,
+        },
+      ];
     case "clearance":
     case "corner":
     case "free_kick":
-      return {
-        keyframes: [
-          {
-            pos: atActor,
-            airborne: true,
-            spinning: true,
-            height: 0.8,
-            wait: 0,
-          },
-          {
-            pos: { x: isHome ? 60 : 40, y: 30 + (hashId(e.id) % 40) },
-            airborne: true,
-            spinning: true,
-            height: 0.5,
-            wait: 420,
-          },
-        ],
-      };
+      return [
+        { pos: at, airborne: true, spinning: true, height: 0.85, wait: 0 },
+        {
+          pos: { x: isHome ? 58 : 42, y: 25 + (hashId(e.id) % 50) },
+          airborne: true,
+          spinning: true,
+          height: 0.45,
+          wait: 450,
+        },
+      ];
     default:
-      return {
-        keyframes: [
-          {
-            pos: actor ? { x: actor.base.x, y: actor.base.y } : prev,
-            airborne: false,
-            spinning: false,
-            height: 0,
-            wait: 0,
-          },
-        ],
-      };
+      return [
+        {
+          pos: actor ? { x: actor.base.x + (isHome ? 4 : -4), y: actor.base.y } : prev,
+          airborne: false,
+          spinning: false,
+          height: 0,
+          wait: 0,
+        },
+      ];
   }
 }
 
@@ -402,12 +401,13 @@ export function MatchPitch({
     () => lineupAt(match.awayLineup, match.events, match.awayTeam.id, eventIndex),
     [match.awayLineup, match.events, match.awayTeam.id, eventIndex],
   );
-  const stones = useMemo(() => {
-    return [
+  const stones = useMemo(
+    () => [
       ...assignStones(match.homeTeam, homeLines, "home"),
       ...assignStones(match.awayTeam, awayLines, "away"),
-    ];
-  }, [match.homeTeam, match.awayTeam, homeLines, awayLines]);
+    ],
+    [match.homeTeam, match.awayTeam, homeLines, awayLines],
+  );
 
   const [ball, setBall] = useState<BallState>({
     pos: { x: 50, y: 50 },
@@ -415,20 +415,21 @@ export function MatchPitch({
     spinning: false,
     height: 0,
   });
-  const [stonePos, setStonePos] = useState<Map<string, Pt>>(() => new Map());
+  const [stonePos, setStonePos] = useState<Record<string, Pt>>({});
+  const [tick, setTick] = useState(0);
   const ballRef = useRef(ball);
   ballRef.current = ball;
-  const animRef = useRef(0);
+  const stoneRef = useRef(stonePos);
+  stoneRef.current = stonePos;
 
-  // Ball keyframe animation per event
+  // Ball keyframes
   useEffect(() => {
-    const plan = ballPlan(event, match.homeTeam.id, stones, ballRef.current.pos);
+    const frames = ballPlan(event, match.homeTeam.id, stones, ballRef.current.pos);
     let cancelled = false;
     let i = 0;
-
     const run = () => {
-      if (cancelled || i >= plan.keyframes.length) return;
-      const frame = plan.keyframes[i]!;
+      if (cancelled || i >= frames.length) return;
+      const frame = frames[i]!;
       setBall({
         pos: frame.pos,
         airborne: frame.airborne,
@@ -436,9 +437,8 @@ export function MatchPitch({
         height: frame.height,
       });
       i += 1;
-      if (i < plan.keyframes.length) {
-        const next = plan.keyframes[i]!;
-        window.setTimeout(run, Math.max(120, next.wait || 350));
+      if (i < frames.length) {
+        window.setTimeout(run, Math.max(140, frames[i]!.wait || 350));
       }
     };
     run();
@@ -447,43 +447,74 @@ export function MatchPitch({
     };
   }, [eventIndex, match.homeTeam.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Continuous player movement toward computed targets
+  // When event changes, snap stones toward bold new targets immediately
+  useEffect(() => {
+    const targets = targetsForEvent(
+      stones,
+      event,
+      match.homeTeam.id,
+      ballRef.current.pos,
+      eventIndex * 900,
+    );
+    setStonePos((prev) => {
+      const next: Record<string, Pt> = { ...prev };
+      for (const s of stones) {
+        const t = targets.get(s.id) ?? s.base;
+        const cur = prev[s.id] ?? s.base;
+        // Jump most of the way so motion is obvious even on short filler beats
+        next[s.id] = {
+          x: lerp(cur.x, t.x, 0.72),
+          y: lerp(cur.y, t.y, 0.72),
+        };
+      }
+      return next;
+    });
+  }, [eventIndex, stones, event, match.homeTeam.id]);
+
+  // Continuous chase + idle roam
   useEffect(() => {
     let alive = true;
-    const start = performance.now();
-    const tick = (now: number) => {
+    let raf = 0;
+    let last = performance.now();
+    const loop = (now: number) => {
       if (!alive) return;
-      animRef.current = now;
-      const targets = computeTargets(
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      setTick((t) => t + 1);
+      const targets = targetsForEvent(
         stones,
         event,
         match.homeTeam.id,
         ballRef.current.pos,
-        now - start + eventIndex * 1000,
+        now,
       );
       setStonePos((prev) => {
-        const next = new Map<string, Pt>();
+        const next: Record<string, Pt> = {};
+        const follow = event && isMajorEvent(event.type) ? 3.8 : 2.6; // % per second factor
         for (const s of stones) {
-          const target = targets.get(s.id) ?? s.base;
-          const cur = prev.get(s.id) ?? s.base;
-          // Major events: move more decisively; filler: gentler
-          const speed = event && isMajorEvent(event.type) ? 0.18 : 0.1;
-          next.set(s.id, lerpPt(cur, target, speed));
+          const t = targets.get(s.id) ?? s.base;
+          const cur = prev[s.id] ?? s.base;
+          const k = 1 - Math.exp(-follow * dt * 60 * 0.016);
+          next[s.id] = {
+            x: lerp(cur.x, t.x, clamp(k * 8, 0.08, 0.35)),
+            y: lerp(cur.y, t.y, clamp(k * 8, 0.08, 0.35)),
+          };
         }
         return next;
       });
-      requestAnimationFrame(tick);
+      raf = requestAnimationFrame(loop);
     };
-    const id = requestAnimationFrame(tick);
+    raf = requestAnimationFrame(loop);
     return () => {
       alive = false;
-      cancelAnimationFrame(id);
+      cancelAnimationFrame(raf);
     };
   }, [stones, event, match.homeTeam.id, eventIndex]);
 
   const minute = event
     ? `${event.minute}'${event.stoppage ? `+${event.stoppage}` : ""}`
     : "0'";
+  const moveMs = event && isMajorEvent(event.type) ? 700 : 280;
 
   return (
     <section className="space-y-2">
@@ -518,12 +549,8 @@ export function MatchPitch({
             <circle cx="50" cy="31" r="0.5" fill="#e8e4d4" />
             <rect x="0.5" y="12" width="14" height="38" fill="none" stroke="#e8e4d4" strokeWidth="0.3" />
             <rect x="0.5" y="21" width="5" height="20" fill="none" stroke="#e8e4d4" strokeWidth="0.3" />
-            <circle cx="10" cy="31" r="0.45" fill="#e8e4d4" />
-            <path d="M14.5 22.5 A 7 7 0 0 1 14.5 39.5" fill="none" stroke="#e8e4d4" strokeWidth="0.3" />
             <rect x="85.5" y="12" width="14" height="38" fill="none" stroke="#e8e4d4" strokeWidth="0.3" />
             <rect x="94.5" y="21" width="5" height="20" fill="none" stroke="#e8e4d4" strokeWidth="0.3" />
-            <circle cx="90" cy="31" r="0.45" fill="#e8e4d4" />
-            <path d="M85.5 22.5 A 7 7 0 0 0 85.5 39.5" fill="none" stroke="#e8e4d4" strokeWidth="0.3" />
             <rect x="-1.2" y="26" width="1.7" height="10" fill="none" stroke="#e8e4d4" strokeWidth="0.35" />
             <rect x="99.5" y="26" width="1.7" height="10" fill="none" stroke="#e8e4d4" strokeWidth="0.35" />
           </svg>
@@ -536,28 +563,31 @@ export function MatchPitch({
           </div>
 
           {stones.map((s) => {
-            const p = stonePos.get(s.id) ?? s.base;
+            const p = stonePos[s.id] ?? s.base;
+            const active = event?.playerId === s.id;
             return (
               <div
                 key={s.id}
-                className="absolute -translate-x-1/2 -translate-y-1/2 will-change-transform"
+                className="absolute -translate-x-1/2 -translate-y-1/2 will-change-[left,top]"
                 style={{
                   left: `${p.x}%`,
                   top: `${p.y}%`,
-                  transition: "left 0.35s linear, top 0.35s linear",
+                  transition: `left ${moveMs}ms ease-out, top ${moveMs}ms ease-out`,
+                  zIndex: active ? 15 : 5,
                 }}
                 title={`${s.number}. ${s.name}`}
               >
                 <div
                   className={cn(
                     "flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold shadow-md sm:h-7 sm:w-7 sm:text-[11px]",
-                    "ring-2 ring-black/40",
-                    event?.playerId === s.id && "ring-amber-300 scale-110",
+                    "ring-2 ring-black/50",
+                    active && "scale-125 ring-amber-300",
                   )}
                   style={{
                     background: `radial-gradient(circle at 35% 30%, ${s.accent}cc, ${s.color} 55%, #0a0a0a)`,
                     color: "#fff",
                     textShadow: "0 1px 1px rgba(0,0,0,.8)",
+                    transform: active ? undefined : `translateY(${Math.sin(tick * 0.08 + hashId(s.id)) * 1}px)`,
                   }}
                 >
                   {s.number}
@@ -567,12 +597,12 @@ export function MatchPitch({
           })}
 
           <div
-            className="absolute -translate-x-1/2 -translate-y-1/2 will-change-transform"
+            className="absolute -translate-x-1/2 -translate-y-1/2 will-change-[left,top]"
             style={{
               left: `${ball.pos.x}%`,
               top: `${ball.pos.y}%`,
               zIndex: 20,
-              transition: "left 0.45s ease-out, top 0.45s ease-out",
+              transition: "left 0.4s ease-out, top 0.4s ease-out",
             }}
           >
             <div
