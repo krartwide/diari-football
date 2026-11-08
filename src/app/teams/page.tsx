@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ALL_OFFICIAL_TEAMS } from "@/data/nations";
-import { getCustomTeams } from "@/lib/storage";
+import { getAllTeams, getCustomTeams } from "@/lib/storage";
 import { teamAverageOvr } from "@/lib/ovr";
 import type { Confederation, Team } from "@/types/football";
 import { Input } from "@/components/ui/input";
@@ -18,17 +18,21 @@ const CONF: Array<Confederation | "ALL"> = [
 ];
 
 export default function TeamsPage() {
-  const [custom, setCustom] = useState<Team[]>([]);
+  const [teamsAll, setTeamsAll] = useState<Team[]>([]);
+  const [customCount, setCustomCount] = useState(0);
+  const [editedIds, setEditedIds] = useState<Set<string>>(new Set());
   const [q, setQ] = useState("");
   const [conf, setConf] = useState<(typeof CONF)[number]>("ALL");
 
   useEffect(() => {
-    setCustom(getCustomTeams());
+    setTeamsAll(getAllTeams());
+    const saved = getCustomTeams();
+    setCustomCount(saved.filter((t) => !t.isOfficial).length);
+    setEditedIds(new Set(saved.filter((t) => t.isOfficial).map((t) => t.id)));
   }, []);
 
   const teams = useMemo(() => {
-    const all = [...custom, ...ALL_OFFICIAL_TEAMS];
-    return all.filter((t) => {
+    return teamsAll.filter((t) => {
       if (conf !== "ALL" && t.confederation !== conf) return false;
       if (!q.trim()) return true;
       const s = q.toLowerCase();
@@ -38,7 +42,7 @@ export default function TeamsPage() {
         t.fifaCode.toLowerCase().includes(s)
       );
     });
-  }, [custom, q, conf]);
+  }, [teamsAll, q, conf]);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
@@ -46,7 +50,7 @@ export default function TeamsPage() {
         <div>
           <h1 className="font-[family-name:var(--font-display)] text-3xl text-white">팀</h1>
           <p className="mt-1 text-sm text-zinc-400">
-            공식 국가대표 {ALL_OFFICIAL_TEAMS.length}개 + 나의 팀 {custom.length}개
+            공식 국가대표 {ALL_OFFICIAL_TEAMS.length}개 (편집 가능) · 커스텀 {customCount}개 · FC 27 레이팅
           </p>
         </div>
         <Link
@@ -108,6 +112,7 @@ export default function TeamsPage() {
                   </div>
                   <div className="text-xs text-zinc-500">
                     {t.nameEn} · FIFA #{t.fifaRank}
+                    {t.isOfficial && editedIds.has(t.id) && " · 편집됨"}
                     {!t.isOfficial && " · 커스텀"}
                     {t.visibility === "private" && " · 비공개"}
                   </div>

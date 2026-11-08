@@ -1,5 +1,5 @@
 import { clubBand, clubBaseOvr } from "@/data/ratings/clubs";
-import { lookupEaOvr } from "@/data/ratings/eaFc25";
+import { lookupEaOvr } from "@/data/ratings/eaFc27";
 import {
   enrichPlayer,
   type PartialPlayer,

@@ -2,10 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ALL_OFFICIAL_TEAMS } from "@/data/nations";
 import { MATCH_MODES, simulateSeries } from "@/lib/simulation/series";
 import { simulateMatch } from "@/lib/simulation/engine";
-import { getCustomTeams, saveMatch, saveSeries } from "@/lib/storage";
+import { getAllTeams, saveMatch, saveSeries } from "@/lib/storage";
 import { teamAverageOvr } from "@/lib/ovr";
 import type { MatchMode, MatchSettings, Team } from "@/types/football";
 import { Button } from "@/components/ui/button";
@@ -14,9 +13,9 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 export default function PlayPage() {
   const router = useRouter();
-  const [custom, setCustom] = useState<Team[]>([]);
-  const [homeId, setHomeId] = useState(ALL_OFFICIAL_TEAMS[0]?.id ?? "");
-  const [awayId, setAwayId] = useState(ALL_OFFICIAL_TEAMS[1]?.id ?? "");
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [homeId, setHomeId] = useState("");
+  const [awayId, setAwayId] = useState("");
   const [mode, setMode] = useState<MatchMode>("single");
   const [homeAdvantage, setHomeAdvantage] = useState(true);
   const [competition, setCompetition] = useState("친선 경기");
@@ -24,18 +23,13 @@ export default function PlayPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    setCustom(getCustomTeams());
+    const all = getAllTeams();
+    setTeams(all);
+    if (all.length >= 2) {
+      setHomeId((prev) => prev || all[0]!.id);
+      setAwayId((prev) => prev || all[1]!.id);
+    }
   }, []);
-
-  const teams = useMemo(() => {
-    const all = [...custom, ...ALL_OFFICIAL_TEAMS];
-    const seen = new Set<string>();
-    return all.filter((t) => {
-      if (seen.has(t.id)) return false;
-      seen.add(t.id);
-      return true;
-    });
-  }, [custom]);
 
   useEffect(() => {
     if (teams.length < 2) return;

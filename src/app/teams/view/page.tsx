@@ -1,10 +1,13 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ALL_OFFICIAL_TEAMS } from "@/data/nations";
-import { getCustomTeams } from "@/lib/storage";
+import {
+  getTeamById,
+  isOfficialOverride,
+  resetOfficialTeam,
+} from "@/lib/storage";
 import { teamAverageOvr } from "@/lib/ovr";
 import type { Team } from "@/types/football";
 import { Badge } from "@/components/ui/badge";
@@ -26,16 +29,14 @@ export default function TeamDetailPage() {
 function TeamDetailInner() {
   const search = useSearchParams();
   const id = search.get("id") ?? "";
-  const [custom, setCustom] = useState<Team[]>([]);
+  const [team, setTeam] = useState<Team | undefined>();
+  const [edited, setEdited] = useState(false);
 
   useEffect(() => {
-    setCustom(getCustomTeams());
-  }, []);
-
-  const team = useMemo(() => {
-    if (!id) return undefined;
-    return [...custom, ...ALL_OFFICIAL_TEAMS].find((t) => t.id === id);
-  }, [custom, id]);
+    if (!id) return;
+    setTeam(getTeamById(id));
+    setEdited(isOfficialOverride(id));
+  }, [id]);
 
   if (!team) {
     return (
@@ -139,13 +140,24 @@ function TeamDetailInner() {
       </div>
 
       <div className="mt-6 flex flex-wrap gap-4">
-        {!team.isOfficial && (
-          <Link
-            href={`/teams/new/?edit=${encodeURIComponent(team.id)}`}
-            className="text-sky-400 hover:underline"
+        <Link
+          href={`/teams/new/?edit=${encodeURIComponent(team.id)}`}
+          className="text-sky-400 hover:underline"
+        >
+          팀 편집
+        </Link>
+        {team.isOfficial && edited && (
+          <button
+            type="button"
+            className="text-amber-400 hover:underline"
+            onClick={() => {
+              resetOfficialTeam(team.id);
+              setTeam(getTeamById(team.id));
+              setEdited(false);
+            }}
           >
-            팀 편집
-          </Link>
+            공식 데이터로 되돌리기
+          </button>
         )}
         <Link href="/play/" className="text-emerald-400 hover:underline">
           이 팀으로 경기하기 →

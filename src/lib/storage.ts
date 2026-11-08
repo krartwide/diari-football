@@ -1,6 +1,7 @@
 "use client";
 
 import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from "lz-string";
+import { ALL_OFFICIAL_TEAMS } from "@/data/nations";
 import type { MatchResult, SeriesResult, Team } from "@/types/football";
 
 const TEAMS_KEY = "diari-football-teams-v1";
@@ -39,6 +40,7 @@ export function getCustomTeams(): Team[] {
   return read<Team[]>(TEAMS_KEY, []);
 }
 
+/** Saved overrides for official teams + pure custom teams. */
 export function saveCustomTeam(team: Team) {
   const teams = getCustomTeams().filter((t) => t.id !== team.id);
   teams.unshift(team);
@@ -50,6 +52,34 @@ export function deleteCustomTeam(id: string) {
     TEAMS_KEY,
     getCustomTeams().filter((t) => t.id !== id),
   );
+}
+
+export function isOfficialOverride(id: string): boolean {
+  return getCustomTeams().some((t) => t.id === id && t.isOfficial);
+}
+
+/** Reset an edited official team back to stock data. */
+export function resetOfficialTeam(id: string) {
+  if (!id.startsWith("official-")) return;
+  deleteCustomTeam(id);
+}
+
+/**
+ * Official roster with local edits applied (same id replaces stock team).
+ * Custom-only teams are listed first.
+ */
+export function getAllTeams(): Team[] {
+  const saved = getCustomTeams();
+  const byId = new Map(saved.map((t) => [t.id, t]));
+  const official = ALL_OFFICIAL_TEAMS.map((t) => byId.get(t.id) ?? t);
+  const customOnly = saved.filter((t) => !t.isOfficial && !t.id.startsWith("official-"));
+  return [...customOnly, ...official];
+}
+
+export function getTeamById(id: string): Team | undefined {
+  const saved = getCustomTeams().find((t) => t.id === id);
+  if (saved) return saved;
+  return ALL_OFFICIAL_TEAMS.find((t) => t.id === id);
 }
 
 export function getSavedMatches(): MatchResult[] {

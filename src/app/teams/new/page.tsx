@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { nanoid } from "nanoid";
 import { FORMATION_LIST } from "@/data/formations";
 import { enrichPlayer, teamAverageOvr } from "@/lib/ovr";
-import { getCustomTeams, saveCustomTeam } from "@/lib/storage";
+import { getTeamById, saveCustomTeam } from "@/lib/storage";
 import type {
   ManagerPersonality,
   Player,
@@ -238,6 +238,7 @@ function NewTeamForm() {
     emptyDraft({ number: 1, position: "GK" }),
   ]);
   const [teamId, setTeamId] = useState(() => `custom-${nanoid(10)}`);
+  const [baseTeam, setBaseTeam] = useState<Team | null>(null);
   const [ready, setReady] = useState(!editId);
 
   useEffect(() => {
@@ -245,11 +246,12 @@ function NewTeamForm() {
       setReady(true);
       return;
     }
-    const existing = getCustomTeams().find((t) => t.id === editId);
+    const existing = getTeamById(editId);
     if (!existing) {
       setReady(true);
       return;
     }
+    setBaseTeam(existing);
     setTeamId(existing.id);
     setName(existing.name);
     setVisibility(existing.visibility);
@@ -273,6 +275,7 @@ function NewTeamForm() {
 
   const enriched = useMemo(() => players.map(draftToPlayer), [players]);
   const teamOvr = teamAverageOvr(enriched);
+  const editingOfficial = Boolean(baseTeam?.isOfficial || teamId.startsWith("official-"));
 
   const updatePlayer = (key: string, patch: Partial<DraftPlayer>) => {
     setPlayers((list) => list.map((p) => (p.key === key ? { ...p, ...patch } : p)));
@@ -289,22 +292,32 @@ function NewTeamForm() {
     const team: Team = {
       id: teamId,
       name: name.trim(),
-      nameEn: name.trim(),
-      fifaCode: code,
-      visibility,
-      isOfficial: false,
-      confederation: "AFC",
-      fifaRank: 999,
+      nameEn: editingOfficial && baseTeam ? baseTeam.nameEn : name.trim(),
+      fifaCode: editingOfficial && baseTeam ? baseTeam.fifaCode : code,
+      visibility: editingOfficial ? "public" : visibility,
+      isOfficial: editingOfficial,
+      confederation: editingOfficial && baseTeam ? baseTeam.confederation : "AFC",
+      fifaRank: editingOfficial && baseTeam ? baseTeam.fifaRank : 999,
       colors: { primary, secondary, accent, pattern },
       photoUrl: photoUrl.trim() || undefined,
-      stadium: `${name.trim()} 홈구장`,
+      stadium:
+        editingOfficial && baseTeam
+          ? baseTeam.stadium
+          : `${name.trim()} 홈구장`,
       manager: {
         name: managerName.trim() || "미정",
-        nameEn: managerName.trim() || "TBD",
-        nationality: "한국",
+        nameEn:
+          editingOfficial && baseTeam
+            ? baseTeam.manager.nameEn
+            : managerName.trim() || "TBD",
+        nationality:
+          editingOfficial && baseTeam ? baseTeam.manager.nationality : "한국",
         personality,
         preferredFormation: formation,
-        since: new Date().getFullYear(),
+        since:
+          editingOfficial && baseTeam
+            ? baseTeam.manager.since
+            : new Date().getFullYear(),
       },
       tactics: {
         formation,
@@ -332,10 +345,16 @@ function NewTeamForm() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
       <h1 className="font-[family-name:var(--font-display)] text-3xl text-white">
-        {editId ? "팀 편집" : "커스텀 팀 만들기"}
+        {editingOfficial
+          ? "공식 팀 편집"
+          : editId
+            ? "팀 편집"
+            : "커스텀 팀 만들기"}
       </h1>
       <p className="mt-2 text-sm text-zinc-400">
-        공개/비공개 팀을 만들고 시즌 기록으로 OVR를 미리 봅니다.
+        {editingOfficial
+          ? "공개 국가대표 스쿼드·전술을 수정합니다. 저장본은 이 기기에만 적용되며, 언제든 공식 데이터로 되돌릴 수 있습니다. OVR는 EA FC 27 레이팅을 우선합니다."
+          : "공개/비공개 팀을 만들고 시즌 기록으로 OVR를 미리 봅니다. (EA FC 27 기준)"}
       </p>
 
       <div className="mt-6 space-y-8">
@@ -352,6 +371,7 @@ function NewTeamForm() {
                 placeholder="예: 서울 유나이티드"
               />
             </div>
+            {!editingOfficial && (
             <div className="space-y-2">
               <Label>공개 범위</Label>
               <div className="flex gap-2">
@@ -372,6 +392,7 @@ function NewTeamForm() {
                 ))}
               </div>
             </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="photo">사진 URL (선택)</Label>
               <Input
